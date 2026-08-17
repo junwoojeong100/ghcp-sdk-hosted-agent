@@ -109,6 +109,14 @@ AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
 
 `azd deploy`는 `codeConfiguration`을 사용한 직접 코드 배포입니다. Docker/ACR이나 Foundry 모델 배포가 필요하지 않습니다.
 
+## Azure 전체 재생성
+
+Foundry, App Service, 관리 ID, RBAC과 앱 설정을 `my-chat` 이름으로 다시 만드는 절차는 [Azure 재생성 가이드](docs/azure-recreation.md)를 따릅니다.
+
+```bash
+./scripts/recreate-azure.sh
+```
+
 웹 UI는 별도의 Azure App Service에 배포하고 다음 앱 설정을 지정합니다.
 
 | 설정 | 값 |
@@ -144,4 +152,4 @@ python -m uvicorn main:app --host 0.0.0.0 --proxy-headers
 - SQLite 파일은 단일 저사용 웹 인스턴스를 전제로 합니다. 인스턴스를 여러 개로 확장할 경우 Azure SQL 또는 PostgreSQL로 이전하세요.
 - 초기 비밀번호를 변경하면 기존 사용자 비밀번호는 재설정되지 않습니다.
 - 사용자 메모리와 대화 기록은 해당 사용자 ID로 항상 필터링됩니다.
-- Hosted Agent는 도구를 모두 비활성화하고 모든 권한 요청을 거절하므로 파일·셸·외부 작업을 수행하지 않습니다.
+- Hosted Agent는 파일·셸 도구를 제공하지 않으며, 사용자가 선택한 경우에만 제한된 `web_search`/`web_fetch` 도구를 사용할 수 있습니다.
