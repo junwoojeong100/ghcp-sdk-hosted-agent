@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 import uuid
 from collections import defaultdict
@@ -54,6 +55,7 @@ ReasoningEffort = Literal["default", "low", "medium", "high", "xhigh", "max"]
 OutputFormat = Literal["text", "pptx"]
 WebSearchMode = Literal["auto", "required", "disabled"]
 FAST_WEB_SEARCH_MODEL = "gpt-5.6-luna"
+MAX_CONTEXT_MESSAGE_CHARS = 20_000
 logger = logging.getLogger(__name__)
 
 ALLOWED_ATTACHMENT_TYPES = {
@@ -135,6 +137,16 @@ def _safe_filename(filename: str) -> str:
     name = Path(filename).name
     name = re.sub(r"[\x00-\x1f\x7f]+", "", name).strip()
     return (name or "attachment")[:180]
+
+
+def _context_content(content: str) -> str:
+    if len(content) <= MAX_CONTEXT_MESSAGE_CHARS:
+        return content
+    marker = "\n\n[... content truncated for conversation context ...]\n\n"
+    remaining = MAX_CONTEXT_MESSAGE_CHARS - len(marker)
+    head_length = remaining // 2
+    tail_length = remaining - head_length
+    return f"{content[:head_length]}{marker}{content[-tail_length:]}"
 
 
 def _remove_files(paths: list[str], *, strict: bool = False) -> None:
@@ -245,42 +257,53 @@ async def _store_uploads(
         mime_type = ALLOWED_ATTACHMENT_TYPES[suffix]
         validated.append((filename, mime_type, content))
 
-    public_items: list[dict[str, Any]] = []
     agent_items: list[dict[str, Any]] = []
+    attachment_records: list[dict[str, Any]] = []
+    stored_paths: list[str] = []
     target_dir = settings.upload_dir / str(user_id) / conversation_id
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    for filename, mime_type, content in validated:
-        attachment_id = str(uuid.uuid4())
-        storage_path = target_dir / f"{attachment_id}{Path(filename).suffix.lower()}"
-        staging_path = target_dir / f".{attachment_id}.uploading"
-        try:
-            staging_path.write_bytes(content)
-            staging_path.chmod(0o600)
-            os.replace(staging_path, storage_path)
-            public_item = database.add_attachment(
-                attachment_id=attachment_id,
-                message_id=message_id,
-                conversation_id=conversation_id,
-                user_id=user_id,
-                filename=filename,
-                mime_type=mime_type,
-                size_bytes=len(content),
-                storage_path=str(storage_path),
+    try:
+        for filename, mime_type, content in validated:
+            attachment_id = str(uuid.uuid4())
+            storage_path = (
+                target_dir / f"{attachment_id}{Path(filename).suffix.lower()}"
             )
-        except Exception:
-            staging_path.unlink(missing_ok=True)
-            storage_path.unlink(missing_ok=True)
-            raise
-        public_items.append(public_item)
-        agent_items.append(
-            {
-                "filename": filename,
-                "mime_type": mime_type,
-                "size_bytes": len(content),
-                "data_base64": base64.b64encode(content).decode("ascii"),
-            }
-        )
+            staging_path = target_dir / f".{attachment_id}.uploading"
+            try:
+                staging_path.write_bytes(content)
+                staging_path.chmod(0o600)
+                os.replace(staging_path, storage_path)
+            except OSError:
+                staging_path.unlink(missing_ok=True)
+                storage_path.unlink(missing_ok=True)
+                raise
+            stored_paths.append(str(storage_path))
+            attachment_records.append(
+                {
+                    "attachment_id": attachment_id,
+                    "message_id": message_id,
+                    "conversation_id": conversation_id,
+                    "user_id": user_id,
+                    "filename": filename,
+                    "mime_type": mime_type,
+                    "size_bytes": len(content),
+                    "storage_path": str(storage_path),
+                    "attachment_kind": "upload",
+                }
+            )
+            agent_items.append(
+                {
+                    "filename": filename,
+                    "mime_type": mime_type,
+                    "size_bytes": len(content),
+                    "data_base64": base64.b64encode(content).decode("ascii"),
+                }
+            )
+        public_items = database.add_attachments(attachment_records)
+    except (OSError, ValueError, sqlite3.Error):
+        _remove_files(stored_paths)
+        raise
     return public_items, agent_items
 
 
@@ -636,7 +659,10 @@ def create_app(
     ]:
         prior_messages = database.list_messages(user.id, conversation_id)
         usable_history = [
-            {"role": message["role"], "content": message["content"]}
+            {
+                "role": message["role"],
+                "content": _context_content(message["content"]),
+            }
             for message in prior_messages[-16:]
             if message["status"] == "complete"
         ]
@@ -665,6 +691,17 @@ def create_app(
                 str(exc.detail),
             )
             raise
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            database.mark_message_error(
+                user.id,
+                user_message["id"],
+                "Unable to persist message attachments.",
+            )
+            logger.exception("Unable to persist message attachments")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="첨부 파일을 저장하지 못했습니다.",
+            ) from exc
         user_message["attachments"] = public_attachments
         database.set_title_from_first_message(
             user.id, conversation_id, payload.content
@@ -722,6 +759,7 @@ def create_app(
                     attachments=agent_attachments,
                     output_format=payload.output_format,
                     web_search_mode=payload.web_search_mode,
+                    session_key=f"user:{user.id}",
                 )
             except AgentServiceError as exc:
                 database.mark_message_error(user.id, user_message["id"], str(exc))
@@ -741,9 +779,11 @@ def create_app(
                     detail="Hosted Agent 호출 중 예기치 않은 오류가 발생했습니다.",
                 ) from exc
 
-            database.mark_message_complete(user.id, user_message["id"])
-            user_message["status"] = "complete"
+            duration_ms = round(
+                (time.monotonic() - response_started_at) * 1000
+            )
             if payload.output_format == "pptx":
+                output_path: Path | None = None
                 try:
                     deck = parse_deck_response(answer)
                     attachment_id = str(uuid.uuid4())
@@ -754,31 +794,36 @@ def create_app(
                         / f"{attachment_id}.pptx"
                     )
                     slide_count = build_presentation(deck, output_path)
-                    assistant_message = database.add_message(
-                        user.id,
-                        conversation_id,
-                        "assistant",
-                        f"{slide_count}장짜리 PPT를 만들었습니다. 아래 파일을 다운로드하세요.",
-                        model=agent_model,
-                        reasoning_effort=payload.reasoning_effort,
-                        duration_ms=round(
-                            (time.monotonic() - response_started_at) * 1000
-                        ),
+                    assistant_message, _ = (
+                        database.complete_presentation_exchange(
+                            user_id=user.id,
+                            conversation_id=conversation_id,
+                            user_message_id=user_message["id"],
+                            content=(
+                                f"{slide_count}장짜리 PPT를 만들었습니다. "
+                                "아래 파일을 다운로드하세요."
+                            ),
+                            model=agent_model,
+                            reasoning_effort=payload.reasoning_effort,
+                            duration_ms=duration_ms,
+                            attachment_id=attachment_id,
+                            filename=_presentation_download_name(deck.title),
+                            mime_type=(
+                                "application/vnd.openxmlformats-officedocument."
+                                "presentationml.presentation"
+                            ),
+                            size_bytes=output_path.stat().st_size,
+                            storage_path=str(output_path),
+                        )
                     )
-                    generated = database.add_attachment(
-                        attachment_id=attachment_id,
-                        message_id=assistant_message["id"],
-                        conversation_id=conversation_id,
-                        user_id=user.id,
-                        filename=_presentation_download_name(deck.title),
-                        mime_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                        size_bytes=output_path.stat().st_size,
-                        storage_path=str(output_path),
-                        attachment_kind="generated",
-                    )
-                    assistant_message["attachments"] = [generated]
-                except (PresentationFormatError, OSError, ValueError) as exc:
-                    if "output_path" in locals():
+                    user_message["status"] = "complete"
+                except (
+                    PresentationFormatError,
+                    OSError,
+                    ValueError,
+                    sqlite3.Error,
+                ) as exc:
+                    if output_path is not None:
                         output_path.unlink(missing_ok=True)
                     database.mark_message_error(
                         user.id,
@@ -790,17 +835,28 @@ def create_app(
                         detail="PPT 슬라이드 생성 형식을 처리하지 못했습니다.",
                     ) from exc
             else:
-                assistant_message = database.add_message(
-                    user.id,
-                    conversation_id,
-                    "assistant",
-                    answer,
-                    model=agent_model,
-                    reasoning_effort=payload.reasoning_effort,
-                    duration_ms=round(
-                        (time.monotonic() - response_started_at) * 1000
-                    ),
-                )
+                try:
+                    assistant_message = database.complete_message_exchange(
+                        user_id=user.id,
+                        conversation_id=conversation_id,
+                        user_message_id=user_message["id"],
+                        content=answer,
+                        model=agent_model,
+                        reasoning_effort=payload.reasoning_effort,
+                        duration_ms=duration_ms,
+                    )
+                    user_message["status"] = "complete"
+                except (ValueError, sqlite3.Error) as exc:
+                    database.mark_message_error(
+                        user.id,
+                        user_message["id"],
+                        "Unable to persist the completed response.",
+                    )
+                    logger.exception("Unable to persist completed response")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="완료된 답변을 저장하지 못했습니다.",
+                    ) from exc
 
         return {
             "user_message": user_message,
@@ -860,6 +916,7 @@ def create_app(
                         attachments=agent_attachments,
                         output_format="text",
                         web_search_mode=payload.web_search_mode,
+                        session_key=f"user:{user.id}",
                     ):
                         answer_parts.append(chunk)
                         yield json.dumps(
@@ -872,19 +929,18 @@ def create_app(
                         raise AgentServiceError(
                             "The Foundry agent returned an empty answer."
                         )
-                    database.mark_message_complete(user.id, user_message["id"])
-                    user_message["status"] = "complete"
-                    assistant_message = database.add_message(
-                        user.id,
-                        conversation_id,
-                        "assistant",
-                        answer,
+                    assistant_message = database.complete_message_exchange(
+                        user_id=user.id,
+                        conversation_id=conversation_id,
+                        user_message_id=user_message["id"],
+                        content=answer,
                         model=agent_model,
                         reasoning_effort=payload.reasoning_effort,
                         duration_ms=round(
                             (time.monotonic() - response_started_at) * 1000
                         ),
                     )
+                    user_message["status"] = "complete"
                     yield json.dumps(
                         {
                             "type": "done",
@@ -903,6 +959,21 @@ def create_app(
                         )
                     yield json.dumps(
                         {"type": "error", "detail": str(exc)},
+                        ensure_ascii=False,
+                    ) + "\n"
+                except (ValueError, sqlite3.Error):
+                    if user_message is not None:
+                        database.mark_message_error(
+                            user.id,
+                            user_message["id"],
+                            "Unable to persist the completed response.",
+                        )
+                    logger.exception("Unable to persist streaming response")
+                    yield json.dumps(
+                        {
+                            "type": "error",
+                            "detail": "완료된 답변을 저장하지 못했습니다.",
+                        },
                         ensure_ascii=False,
                     ) + "\n"
                 except Exception:

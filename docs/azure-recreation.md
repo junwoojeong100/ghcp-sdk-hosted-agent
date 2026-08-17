@@ -25,7 +25,7 @@ The default plan is F1 for cost parity with the original deployment. Set `APP_SE
 
 - Azure CLI and Azure Developer CLI authenticated to the target tenant
 - `azure.ai.agents` azd extension
-- `jq` and `zip`
+- `curl` and `jq`
 - Permission to create resource groups and role assignments
 - A GitHub OAuth token that can use GitHub Copilot
 
@@ -59,8 +59,10 @@ The script:
 1. Creates or selects the `my-chat-<env>` azd environment.
 2. Provisions the Foundry account, project, and secret connection.
 3. Deploys the Hosted Agent.
-4. Deploys the App Service Bicep template and RBAC assignment.
-5. Packages and ZIP-deploys the FastAPI web app.
+4. Invokes the Hosted Agent as a smoke test.
+5. Deploys the App Service Bicep template and RBAC assignment.
+6. Builds a sanitized ZIP that excludes local databases, uploads, secrets, caches, and logs.
+7. ZIP-deploys the FastAPI web app and waits for `/healthz` to succeed.
 
 ## Restore user data
 

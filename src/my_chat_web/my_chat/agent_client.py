@@ -43,8 +43,8 @@ class FoundryAgentClient:
         self._models_cache: dict[str, Any] | None = None
         self._models_cached_at = 0.0
         self._models_lock = asyncio.Lock()
-        self._agent_session_id: str | None = None
-        self._session_init_lock = asyncio.Lock()
+        self._agent_session_ids: dict[str, str] = {}
+        self._session_init_locks: dict[str, asyncio.Lock] = {}
 
     @property
     def _is_local(self) -> bool:
@@ -67,14 +67,19 @@ class FoundryAgentClient:
             ) from exc
         return {"Authorization": f"Bearer {token.token}"}
 
-    async def _invoke_request(self, envelope: dict[str, Any]) -> dict[str, Any]:
+    async def _invoke_request(
+        self,
+        envelope: dict[str, Any],
+        session_key: str,
+    ) -> dict[str, Any]:
         headers = await self._authorization_headers()
         body: dict[str, Any] = {
             "input": json.dumps(envelope, ensure_ascii=False),
             "stream": False,
         }
-        if self._agent_session_id:
-            body["agent_session_id"] = self._agent_session_id
+        session_id = self._agent_session_ids.get(session_key)
+        if session_id:
+            body["agent_session_id"] = session_id
 
         response: httpx.Response | None = None
         response_payload: dict[str, Any] | None = None
@@ -106,14 +111,14 @@ class FoundryAgentClient:
                 )
             except ValueError:
                 response_payload = None
-            session_id = (
+            response_session_id = (
                 response_payload.get("agent_session_id")
                 if response_payload is not None
                 else None
             ) or response.headers.get("x-agent-session-id")
-            if session_id:
-                self._agent_session_id = session_id
-                body["agent_session_id"] = session_id
+            if isinstance(response_session_id, str) and response_session_id:
+                self._agent_session_ids[session_key] = response_session_id
+                body["agent_session_id"] = response_session_id
             if response.status_code == 424 and attempt < 2:
                 await asyncio.sleep(15 * (attempt + 1))
                 continue
@@ -153,14 +158,22 @@ class FoundryAgentClient:
             )
         return result
 
-    async def _invoke(self, envelope: dict[str, Any]) -> dict[str, Any]:
-        if self._agent_session_id is None:
-            async with self._session_init_lock:
-                if self._agent_session_id is None:
-                    return await self._invoke_request(envelope)
-        return await self._invoke_request(envelope)
+    async def _invoke(
+        self,
+        envelope: dict[str, Any],
+        session_key: str,
+    ) -> dict[str, Any]:
+        if session_key in self._agent_session_ids:
+            return await self._invoke_request(envelope, session_key)
+        lock = self._session_init_locks.setdefault(session_key, asyncio.Lock())
+        async with lock:
+            return await self._invoke_request(envelope, session_key)
 
-    async def list_models(self, force_refresh: bool = False) -> dict[str, Any]:
+    async def list_models(
+        self,
+        force_refresh: bool = False,
+        session_key: str = "models",
+    ) -> dict[str, Any]:
         async with self._models_lock:
             if (
                 not force_refresh
@@ -173,7 +186,8 @@ class FoundryAgentClient:
                 {
                     "protocol": "my-chat/v1",
                     "action": "list_models",
-                }
+                },
+                session_key,
             )
             self._models_cache = result
             self._models_cached_at = time.monotonic()
@@ -190,6 +204,7 @@ class FoundryAgentClient:
         attachments: list[dict[str, Any]] | None = None,
         output_format: str = "text",
         web_search_mode: str = "auto",
+        session_key: str,
     ) -> str:
         result = await self._invoke(
             {
@@ -203,7 +218,8 @@ class FoundryAgentClient:
                 "attachments": attachments or [],
                 "output_format": output_format,
                 "web_search_mode": web_search_mode,
-            }
+            },
+            session_key,
         )
         content = result.get("content")
         if not isinstance(content, str) or not content.strip():
@@ -213,14 +229,16 @@ class FoundryAgentClient:
     async def _stream_chat_request(
         self,
         envelope: dict[str, Any],
+        session_key: str,
     ):
         headers = await self._authorization_headers()
         body: dict[str, Any] = {
             "input": json.dumps(envelope, ensure_ascii=False),
             "stream": True,
         }
-        if self._agent_session_id:
-            body["agent_session_id"] = self._agent_session_id
+        session_id = self._agent_session_ids.get(session_key)
+        if session_id:
+            body["agent_session_id"] = session_id
 
         for attempt in range(3):
             async with self._http.stream(
@@ -229,10 +247,10 @@ class FoundryAgentClient:
                 json=body,
                 headers=headers,
             ) as response:
-                session_id = response.headers.get("x-agent-session-id")
-                if session_id:
-                    self._agent_session_id = session_id
-                    body["agent_session_id"] = session_id
+                response_session_id = response.headers.get("x-agent-session-id")
+                if response_session_id:
+                    self._agent_session_ids[session_key] = response_session_id
+                    body["agent_session_id"] = response_session_id
                 if response.status_code == 424 and attempt < 2:
                     await response.aread()
                     await asyncio.sleep(15 * (attempt + 1))
@@ -255,6 +273,7 @@ class FoundryAgentClient:
                         f"{response.status_code}: {detail}"
                     )
 
+                completed = False
                 async for line in response.aiter_lines():
                     if not line.startswith("data:"):
                         continue
@@ -267,14 +286,21 @@ class FoundryAgentClient:
                         continue
                     response_data = event.get("response")
                     if isinstance(response_data, dict):
-                        session_id = response_data.get("agent_session_id")
-                        if isinstance(session_id, str) and session_id:
-                            self._agent_session_id = session_id
+                        response_session_id = response_data.get("agent_session_id")
+                        if (
+                            isinstance(response_session_id, str)
+                            and response_session_id
+                        ):
+                            self._agent_session_ids[session_key] = (
+                                response_session_id
+                            )
                     event_type = event.get("type")
                     if event_type == "response.output_text.delta":
                         delta = event.get("delta")
                         if isinstance(delta, str) and delta:
                             yield delta
+                    elif event_type == "response.completed":
+                        completed = True
                     elif event_type in {
                         "response.failed",
                         "response.incomplete",
@@ -282,6 +308,10 @@ class FoundryAgentClient:
                         raise AgentServiceError(
                             "The Foundry agent stream failed."
                         )
+                if not completed:
+                    raise AgentServiceError(
+                        "The Foundry agent stream ended before completion."
+                    )
                 return
         raise AgentServiceError("The Foundry agent stream did not start.")
 
@@ -296,6 +326,7 @@ class FoundryAgentClient:
         attachments: list[dict[str, Any]] | None = None,
         output_format: str = "text",
         web_search_mode: str = "auto",
+        session_key: str,
     ):
         envelope = {
             "protocol": "my-chat/v1",
@@ -309,14 +340,14 @@ class FoundryAgentClient:
             "output_format": output_format,
             "web_search_mode": web_search_mode,
         }
-        if self._agent_session_id is None:
-            async with self._session_init_lock:
-                if self._agent_session_id is None:
-                    async for chunk in self._stream_chat_request(envelope):
-                        yield chunk
-                    return
-        async for chunk in self._stream_chat_request(envelope):
-            yield chunk
+        if session_key in self._agent_session_ids:
+            async for chunk in self._stream_chat_request(envelope, session_key):
+                yield chunk
+            return
+        lock = self._session_init_locks.setdefault(session_key, asyncio.Lock())
+        async with lock:
+            async for chunk in self._stream_chat_request(envelope, session_key):
+                yield chunk
 
     async def close(self) -> None:
         await self._http.aclose()

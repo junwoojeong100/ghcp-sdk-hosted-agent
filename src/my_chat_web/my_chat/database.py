@@ -442,7 +442,7 @@ class Database:
         message_id = str(uuid.uuid4())
         created_at = utc_iso()
         with self._connect() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 INSERT INTO messages (
                     id, conversation_id, user_id, role, content, model,
@@ -469,6 +469,8 @@ class Database:
                     user_id,
                 ),
             )
+            if cursor.rowcount == 0:
+                raise ValueError("Message conversation does not belong to the user.")
             connection.execute(
                 """
                 UPDATE conversations SET updated_at = ?
@@ -490,6 +492,82 @@ class Database:
             "attachments": [],
         }
 
+    @staticmethod
+    def _attachment_result(
+        *,
+        attachment_id: str,
+        message_id: str,
+        filename: str,
+        mime_type: str,
+        size_bytes: int,
+        attachment_kind: str,
+        created_at: str,
+    ) -> dict[str, Any]:
+        return {
+            "id": attachment_id,
+            "message_id": message_id,
+            "filename": filename,
+            "mime_type": mime_type,
+            "size_bytes": size_bytes,
+            "kind": attachment_kind,
+            "created_at": created_at,
+            "download_url": f"/api/attachments/{attachment_id}",
+        }
+
+    def add_attachments(
+        self,
+        attachments: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        with self._connect() as connection:
+            for attachment in attachments:
+                created_at = utc_iso()
+                cursor = connection.execute(
+                    """
+                    INSERT INTO attachments (
+                        id, message_id, conversation_id, user_id, filename,
+                        mime_type, size_bytes, storage_path, attachment_kind,
+                        created_at
+                    )
+                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    WHERE EXISTS (
+                        SELECT 1 FROM messages
+                        WHERE id = ? AND conversation_id = ? AND user_id = ?
+                    )
+                    """,
+                    (
+                        attachment["attachment_id"],
+                        attachment["message_id"],
+                        attachment["conversation_id"],
+                        attachment["user_id"],
+                        attachment["filename"],
+                        attachment["mime_type"],
+                        attachment["size_bytes"],
+                        attachment["storage_path"],
+                        attachment["attachment_kind"],
+                        created_at,
+                        attachment["message_id"],
+                        attachment["conversation_id"],
+                        attachment["user_id"],
+                    ),
+                )
+                if cursor.rowcount == 0:
+                    raise ValueError(
+                        "Attachment message does not belong to the user."
+                    )
+                results.append(
+                    self._attachment_result(
+                        attachment_id=attachment["attachment_id"],
+                        message_id=attachment["message_id"],
+                        filename=attachment["filename"],
+                        mime_type=attachment["mime_type"],
+                        size_bytes=attachment["size_bytes"],
+                        attachment_kind=attachment["attachment_kind"],
+                        created_at=created_at,
+                    )
+                )
+        return results
+
     def add_attachment(
         self,
         *,
@@ -503,49 +581,200 @@ class Database:
         storage_path: str,
         attachment_kind: Literal["upload", "generated"] = "upload",
     ) -> dict[str, Any]:
+        return self.add_attachments(
+            [
+                {
+                    "attachment_id": attachment_id,
+                    "message_id": message_id,
+                    "conversation_id": conversation_id,
+                    "user_id": user_id,
+                    "filename": filename,
+                    "mime_type": mime_type,
+                    "size_bytes": size_bytes,
+                    "storage_path": storage_path,
+                    "attachment_kind": attachment_kind,
+                }
+            ]
+        )[0]
+
+    def complete_message_exchange(
+        self,
+        *,
+        user_id: int,
+        conversation_id: str,
+        user_message_id: str,
+        content: str,
+        model: str,
+        reasoning_effort: str,
+        duration_ms: int,
+    ) -> dict[str, Any]:
+        assistant_message_id = str(uuid.uuid4())
         created_at = utc_iso()
         with self._connect() as connection:
             cursor = connection.execute(
+                """
+                INSERT INTO messages (
+                    id, conversation_id, user_id, role, content, model,
+                    reasoning_effort, status, error, duration_ms, created_at
+                )
+                SELECT ?, ?, ?, 'assistant', ?, ?, ?, 'complete', NULL, ?, ?
+                WHERE EXISTS (
+                    SELECT 1 FROM conversations WHERE id = ? AND user_id = ?
+                )
+                """,
+                (
+                    assistant_message_id,
+                    conversation_id,
+                    user_id,
+                    content,
+                    model,
+                    reasoning_effort,
+                    duration_ms,
+                    created_at,
+                    conversation_id,
+                    user_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError("Conversation does not belong to the user.")
+            cursor = connection.execute(
+                """
+                UPDATE messages SET status = 'complete', error = NULL
+                WHERE id = ? AND conversation_id = ? AND user_id = ?
+                  AND role = 'user' AND status = 'pending'
+                """,
+                (user_message_id, conversation_id, user_id),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("Pending user message was not found.")
+            connection.execute(
+                """
+                UPDATE conversations SET updated_at = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (created_at, conversation_id, user_id),
+            )
+        return {
+            "id": assistant_message_id,
+            "conversation_id": conversation_id,
+            "role": "assistant",
+            "content": content,
+            "model": model,
+            "reasoning_effort": reasoning_effort,
+            "status": "complete",
+            "error": None,
+            "duration_ms": duration_ms,
+            "created_at": created_at,
+            "attachments": [],
+        }
+
+    def complete_presentation_exchange(
+        self,
+        *,
+        user_id: int,
+        conversation_id: str,
+        user_message_id: str,
+        content: str,
+        model: str,
+        reasoning_effort: str,
+        duration_ms: int,
+        attachment_id: str,
+        filename: str,
+        mime_type: str,
+        size_bytes: int,
+        storage_path: str,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        assistant_message_id = str(uuid.uuid4())
+        created_at = utc_iso()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO messages (
+                    id, conversation_id, user_id, role, content, model,
+                    reasoning_effort, status, error, duration_ms, created_at
+                )
+                SELECT ?, ?, ?, 'assistant', ?, ?, ?, 'complete', NULL, ?, ?
+                WHERE EXISTS (
+                    SELECT 1 FROM conversations WHERE id = ? AND user_id = ?
+                )
+                """,
+                (
+                    assistant_message_id,
+                    conversation_id,
+                    user_id,
+                    content,
+                    model,
+                    reasoning_effort,
+                    duration_ms,
+                    created_at,
+                    conversation_id,
+                    user_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError("Conversation does not belong to the user.")
+            connection.execute(
                 """
                 INSERT INTO attachments (
                     id, message_id, conversation_id, user_id, filename,
                     mime_type, size_bytes, storage_path, attachment_kind,
                     created_at
-                )
-                SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                WHERE EXISTS (
-                    SELECT 1 FROM messages
-                    WHERE id = ? AND conversation_id = ? AND user_id = ?
-                )
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'generated', ?)
                 """,
                 (
                     attachment_id,
-                    message_id,
+                    assistant_message_id,
                     conversation_id,
                     user_id,
                     filename,
                     mime_type,
                     size_bytes,
                     storage_path,
-                    attachment_kind,
                     created_at,
-                    message_id,
-                    conversation_id,
-                    user_id,
                 ),
             )
-            if cursor.rowcount == 0:
-                raise ValueError("Attachment message does not belong to the user.")
-        return {
-            "id": attachment_id,
-            "message_id": message_id,
-            "filename": filename,
-            "mime_type": mime_type,
-            "size_bytes": size_bytes,
-            "kind": attachment_kind,
+            cursor = connection.execute(
+                """
+                UPDATE messages SET status = 'complete', error = NULL
+                WHERE id = ? AND conversation_id = ? AND user_id = ?
+                  AND role = 'user' AND status = 'pending'
+                """,
+                (user_message_id, conversation_id, user_id),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("Pending user message was not found.")
+            connection.execute(
+                """
+                UPDATE conversations SET updated_at = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (created_at, conversation_id, user_id),
+            )
+
+        assistant_message = {
+            "id": assistant_message_id,
+            "conversation_id": conversation_id,
+            "role": "assistant",
+            "content": content,
+            "model": model,
+            "reasoning_effort": reasoning_effort,
+            "status": "complete",
+            "error": None,
+            "duration_ms": duration_ms,
             "created_at": created_at,
-            "download_url": f"/api/attachments/{attachment_id}",
+            "attachments": [],
         }
+        attachment = self._attachment_result(
+            attachment_id=attachment_id,
+            message_id=assistant_message_id,
+            filename=filename,
+            mime_type=mime_type,
+            size_bytes=size_bytes,
+            attachment_kind="generated",
+            created_at=created_at,
+        )
+        assistant_message["attachments"] = [attachment]
+        return assistant_message, attachment
 
     def mark_message_error(self, user_id: int, message_id: str, error: str) -> None:
         with self._connect() as connection:

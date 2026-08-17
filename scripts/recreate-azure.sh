@@ -23,9 +23,9 @@ azd_value() {
 
 require_command az
 require_command azd
+require_command curl
 require_command jq
 require_command python3
-require_command zip
 
 require_value COPILOT_GITHUB_TOKEN
 require_value APP_SESSION_SECRET
@@ -76,6 +76,21 @@ AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env set \
 
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision --no-prompt
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd deploy my-chat --no-prompt
+
+agent_smoke_succeeded=false
+for attempt in 1 2 3; do
+  if AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
+    azd ai agent invoke my-chat \
+      "Reply with exactly: OK" >/dev/null; then
+    agent_smoke_succeeded=true
+    break
+  fi
+  sleep $((attempt * 10))
+done
+if [[ "$agent_smoke_succeeded" != "true" ]]; then
+  echo "Hosted Agent smoke test failed." >&2
+  exit 1
+fi
 
 FOUNDRY_ACCOUNT_NAME="$(azd_value AZURE_AI_ACCOUNT_NAME)"
 FOUNDRY_PROJECT_NAME="$(azd_value AZURE_AI_PROJECT_NAME)"
@@ -148,11 +163,7 @@ WEB_RESOURCE_GROUP="$(jq -r '.properties.outputs.webResourceGroupName.value' "$D
 WEB_APP_NAME="$(jq -r '.properties.outputs.webAppName.value' "$DEPLOYMENT_RESULT")"
 WEB_APP_URL="$(jq -r '.properties.outputs.webAppUrl.value' "$DEPLOYMENT_RESULT")"
 
-(
-  cd src/my_chat_web
-  zip -q -r "$PACKAGE_PATH" . \
-    -x '__pycache__/*' '*/__pycache__/*' '*.pyc' '.env' '.venv/*'
-)
+python3 scripts/package_web.py src/my_chat_web "$PACKAGE_PATH"
 
 az webapp deploy \
   --name "$WEB_APP_NAME" \
@@ -162,9 +173,23 @@ az webapp deploy \
   --type zip \
   --clean true \
   --restart true \
-  --track-status false \
+  --track-status true \
   --only-show-errors \
   --output none
+
+web_health_succeeded=false
+for attempt in {1..12}; do
+  if curl --fail --silent --show-error \
+    --max-time 15 "$WEB_APP_URL/healthz" >/dev/null; then
+    web_health_succeeded=true
+    break
+  fi
+  sleep 10
+done
+if [[ "$web_health_succeeded" != "true" ]]; then
+  echo "Web app health check failed: $WEB_APP_URL/healthz" >&2
+  exit 1
+fi
 
 echo "Foundry project: $(azd_value FOUNDRY_PROJECT_ENDPOINT)"
 echo "Hosted Agent: $AGENT_ENDPOINT"

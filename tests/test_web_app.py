@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 import json
 import re
+import sqlite3
 
 from fastapi.testclient import TestClient
 from pptx import Presentation
@@ -383,3 +384,92 @@ def test_csrf_is_required_for_mutations(client: TestClient) -> None:
     )
 
     assert response.status_code == 403
+
+
+def test_long_answers_are_truncated_only_for_reused_context(
+    app,
+    fake_agent,
+) -> None:
+    with TestClient(app) as client:
+        csrf = finish_first_login(client, "jw", "MySecure1234!")
+        conversation_id = client.post(
+            "/api/conversations",
+            headers={"X-CSRF-Token": csrf},
+            json={"model": "gpt-5.6-sol", "reasoning_effort": "low"},
+        ).json()["conversation"]["id"]
+        user = app.state.database.get_user("jw")
+        assert user is not None
+        long_answer = f"{'A' * 12_000}{'Z' * 12_000}"
+        app.state.database.add_message(
+            user.id,
+            conversation_id,
+            "assistant",
+            long_answer,
+            model="gpt-5.6-sol",
+            reasoning_effort="low",
+        )
+
+        response = client.post(
+            f"/api/conversations/{conversation_id}/messages",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "content": "continue",
+                "model": "gpt-5.6-sol",
+                "reasoning_effort": "low",
+            },
+        )
+
+        assert response.status_code == 200
+        context = fake_agent.calls[-1]["messages"][0]["content"]
+        assert len(context) == 20_000
+        assert context.startswith("A")
+        assert context.endswith("Z")
+        assert "content truncated for conversation context" in context
+        stored = client.get(
+            f"/api/conversations/{conversation_id}"
+        ).json()["messages"][0]["content"]
+        assert stored == long_answer
+
+
+def test_upload_database_failure_removes_staged_files(
+    app,
+    monkeypatch,
+) -> None:
+    def fail_add_attachments(_attachments):
+        raise sqlite3.OperationalError("simulated failure")
+
+    monkeypatch.setattr(
+        app.state.database,
+        "add_attachments",
+        fail_add_attachments,
+    )
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        csrf = finish_first_login(client, "bm", "MySecure1234!")
+        conversation_id = client.post(
+            "/api/conversations",
+            headers={"X-CSRF-Token": csrf},
+            json={"model": "gpt-5.6-sol", "reasoning_effort": "default"},
+        ).json()["conversation"]["id"]
+
+        response = client.post(
+            f"/api/conversations/{conversation_id}/messages",
+            headers={"X-CSRF-Token": csrf},
+            data={
+                "content": "첨부 내용을 요약해줘",
+                "model": "gpt-5.6-sol",
+                "reasoning_effort": "default",
+            },
+            files={"files": ("notes.txt", b"private", "text/plain")},
+        )
+
+        assert response.status_code == 500
+        assert not [
+            path
+            for path in app.state.settings.upload_dir.rglob("*")
+            if path.is_file()
+        ]
+        messages = client.get(
+            f"/api/conversations/{conversation_id}"
+        ).json()["messages"]
+        assert messages[0]["status"] == "error"

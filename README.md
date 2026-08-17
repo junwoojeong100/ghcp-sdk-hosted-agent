@@ -20,7 +20,7 @@
 - 웹 검색과 첨부 자료를 바탕으로 `.pptx` 슬라이드 생성 및 다운로드
 - 랩탑 우선 ChatGPT 스타일 UI와 모바일 대응 레이아웃
 - Copilot 연결/로딩/오류 상태, 모델 재시도, 마지막 대화 자동 복원
-- SQLite WAL 기반 영속 저장
+- 로컬은 SQLite WAL, App Service는 네트워크 스토리지에 안전한 rollback journal 기반 영속 저장
 
 ## 구조
 
@@ -117,6 +117,8 @@ Foundry, App Service, 관리 ID, RBAC과 앱 설정을 `my-chat` 이름으로 �
 ./scripts/recreate-azure.sh
 ```
 
+재생성 스크립트는 로컬 `data/`, 업로드, SQLite 파일, `.env`, 로그를 배포 ZIP에서 제외합니다. Hosted Agent 호출과 웹앱 `/healthz` 확인까지 성공해야 배포를 완료한 것으로 처리합니다.
+
 웹 UI는 별도의 Azure App Service에 배포하고 다음 앱 설정을 지정합니다.
 
 | 설정 | 값 |
@@ -144,11 +146,13 @@ python -m uvicorn main:app --host 0.0.0.0 --proxy-headers
 
 ## 운영 참고
 
-- 모델 가용성은 Copilot 요금제와 조직 정책에 따라 달라집니다. UI는 `CopilotClient.list_models()`의 실제 결과만 정상 가용 모델로 취급합니다.
+- 모델 가용성은 Copilot 요금제와 조직 정책에 따라 달라집니다. 정상 연결에서는 `CopilotClient.list_models()`의 실제 결과를 사용합니다. 조회 실패 시 UI는 구성된 fallback 목록과 경고를 표시하지만, 실제 사용 가능 여부는 보장하지 않습니다.
 - `자동`은 모델이 웹 검색 필요성을 판단하고, `항상 사용`은 빠른 검색 모델로 웹 도구를 반드시 실행하며, `사용 안 함`은 웹 도구를 세션에서 제외합니다.
+- 웹앱은 사용자별 Foundry 세션을 재사용합니다. 사용자 간 세션은 공유하지 않으며, 같은 사용자의 후속 요청은 기존 세션을 사용해 연결 초기화 지연을 반복하지 않습니다.
 - 지원 첨부 형식은 TXT, Markdown, CSV, JSON, PDF, PNG/JPG/GIF/WebP, DOCX, XLSX, PPTX입니다. 파일당 8MB, 요청당 5개/총 16MB로 제한합니다.
 - TXT/Markdown/CSV/JSON은 인용 컨텍스트로 전달하고, 이미지·PDF·Office 문서는 Copilot 네이티브 첨부로 전달합니다.
 - 생성된 PPTX와 업로드 파일은 `/home/data/uploads` 아래 사용자·대화별 무작위 저장명으로 보관하며, 소유 사용자만 다운로드할 수 있습니다.
+- 긴 답변 원문은 그대로 저장하며, 다음 요청의 대화 문맥으로 재사용할 때만 메시지당 20,000자로 축약해 프로토콜 제한과 응답시간을 지킵니다.
 - SQLite 파일은 단일 저사용 웹 인스턴스를 전제로 합니다. 인스턴스를 여러 개로 확장할 경우 Azure SQL 또는 PostgreSQL로 이전하세요.
 - 초기 비밀번호를 변경하면 기존 사용자 비밀번호는 재설정되지 않습니다.
 - 사용자 메모리와 대화 기록은 해당 사용자 ID로 항상 필터링됩니다.
