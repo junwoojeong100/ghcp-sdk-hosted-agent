@@ -42,17 +42,17 @@ class DeckSpec(BaseModel):
 
 
 COLORS = {
-    "ink": RGBColor(20, 31, 26),
-    "dark": RGBColor(19, 62, 50),
-    "dark_2": RGBColor(13, 46, 38),
-    "accent": RGBColor(42, 160, 120),
-    "accent_2": RGBColor(85, 205, 163),
-    "pale": RGBColor(232, 245, 239),
-    "pale_2": RGBColor(244, 249, 246),
-    "border": RGBColor(205, 226, 216),
-    "muted": RGBColor(99, 111, 103),
+    "ink": RGBColor(31, 35, 40),
+    "dark": RGBColor(22, 27, 34),
+    "dark_2": RGBColor(13, 17, 23),
+    "accent": RGBColor(31, 111, 235),
+    "accent_2": RGBColor(88, 166, 255),
+    "pale": RGBColor(221, 244, 255),
+    "pale_2": RGBColor(246, 248, 250),
+    "border": RGBColor(208, 215, 222),
+    "muted": RGBColor(87, 96, 106),
     "white": RGBColor(255, 255, 255),
-    "sand": RGBColor(244, 239, 222),
+    "soft_alt": RGBColor(240, 246, 252),
 }
 
 
@@ -256,7 +256,7 @@ def _add_slide_header(
             width=11.65,
             height=0.4,
             text=subtitle,
-            font_size=11,
+            font_size=13,
             color=COLORS["muted"],
         )
 
@@ -282,7 +282,7 @@ def _add_key_message(slide, message: str) -> float:
     run = paragraph.add_run()
     run.text = message
     run.font.name = "Aptos"
-    run.font.size = Pt(17)
+    run.font.size = Pt(19)
     run.font.bold = True
     run.font.color.rgb = COLORS["white"]
     return 2.95
@@ -317,7 +317,7 @@ def _add_spotlight_layout(slide, bullet: str, top: float) -> None:
         width=9.85,
         height=2.6,
         text=bullet[:520],
-        font_size=27,
+        font_size=29,
         color=COLORS["ink"],
         bold=True,
     )
@@ -382,7 +382,7 @@ def _add_card_layout(slide, bullets: list[str], top: float) -> None:
             width=card_width - 1.18,
             height=card_height - 0.4,
             text=bullet[:300],
-            font_size=16 if len(bullet) < 120 else 14,
+            font_size=18 if len(bullet) < 120 else 16,
             color=COLORS["ink"],
             bold=True,
         )
@@ -402,7 +402,7 @@ def _add_two_column_layout(slide, bullets: list[str], top: float) -> None:
             top=top,
             width=5.79,
             height=max(2.9, 6.5 - top),
-            fill_color=COLORS["pale_2"] if column == 0 else COLORS["sand"],
+            fill_color=COLORS["pale_2"] if column == 0 else COLORS["soft_alt"],
             line_color=COLORS["border"],
         )
         _add_text_box(
@@ -433,9 +433,9 @@ def _add_two_column_layout(slide, bullets: list[str], top: float) -> None:
             )
             paragraph.text = item[:320]
             paragraph.font.name = "Aptos"
-            paragraph.font.size = Pt(15)
+            paragraph.font.size = Pt(17)
             paragraph.font.color.rgb = COLORS["ink"]
-            paragraph.space_after = Pt(12)
+            paragraph.space_after = Pt(14)
             paragraph.level = 0
         panel.line.width = Pt(1)
 
@@ -496,8 +496,8 @@ def _add_title_slide(presentation: Presentation, deck: DeckSpec) -> None:
         width=8.7,
         height=0.85,
         text=deck.subtitle or "웹 검색과 첨부 자료를 기반으로 생성한 프레젠테이션",
-        font_size=17,
-        color=RGBColor(198, 226, 215),
+        font_size=20,
+        color=RGBColor(177, 204, 237),
     )
     _add_text_box(
         slide,
@@ -507,7 +507,7 @@ def _add_title_slide(presentation: Presentation, deck: DeckSpec) -> None:
         height=0.32,
         text=f"{len(deck.slides):02d} CONTENT SLIDES  ·  SOURCES INCLUDED",
         font_size=10,
-        color=RGBColor(158, 205, 187),
+        color=RGBColor(121, 171, 232),
         bold=True,
     )
 
@@ -551,7 +551,7 @@ def _add_agenda_slide(
             width=4.9,
             height=0.62,
             text=item.title,
-            font_size=15,
+            font_size=17,
             color=COLORS["ink"],
             bold=True,
         )
@@ -629,7 +629,7 @@ def _add_sources_slide(
         height=0.42,
         text="웹 검색에 사용한 참고 자료입니다.",
         font_size=12,
-        color=RGBColor(185, 215, 203),
+        color=RGBColor(177, 204, 237),
     )
 
     sources = deck.sources[:10]
@@ -646,7 +646,7 @@ def _add_sources_slide(
             width=5.78,
             height=0.68,
             fill_color=COLORS["dark"],
-            line_color=RGBColor(42, 96, 77),
+            line_color=RGBColor(35, 74, 120),
         )
         frame = card.text_frame
         frame.clear()
@@ -657,7 +657,7 @@ def _add_sources_slide(
         title_run = paragraph.add_run()
         title_run.text = f"{index + 1:02d}  {source.title[:68]}"
         title_run.font.name = "Aptos"
-        title_run.font.size = Pt(10)
+        title_run.font.size = Pt(12)
         title_run.font.bold = True
         title_run.font.color.rgb = COLORS["white"]
         url_paragraph = frame.add_paragraph()
@@ -665,7 +665,7 @@ def _add_sources_slide(
         url_run.text = source.url[:105]
         url_run.hyperlink.address = source.url
         url_run.font.name = "Aptos"
-        url_run.font.size = Pt(8)
+        url_run.font.size = Pt(9)
         url_run.font.color.rgb = COLORS["accent_2"]
 
     _add_text_box(
@@ -676,7 +676,7 @@ def _add_sources_slide(
         height=0.25,
         text="MY CHAT",
         font_size=9,
-        color=RGBColor(157, 193, 178),
+        color=RGBColor(121, 171, 232),
         bold=True,
     )
     _add_text_box(
@@ -687,7 +687,7 @@ def _add_sources_slide(
         height=0.25,
         text=f"{slide_number:02d}",
         font_size=9,
-        color=RGBColor(157, 193, 178),
+        color=RGBColor(121, 171, 232),
         bold=True,
         align=PP_ALIGN.RIGHT,
     )

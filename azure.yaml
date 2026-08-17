@@ -19,7 +19,7 @@ services:
       resources:
         cpu: "1"
         memory: 2Gi
-    description: My Chat, powered by the GitHub Copilot SDK with mandatory web search.
+    description: My Chat, powered by the GitHub Copilot SDK with selective web search.
     displayName: My Chat
     environmentVariables:
       - name: APP_ENV

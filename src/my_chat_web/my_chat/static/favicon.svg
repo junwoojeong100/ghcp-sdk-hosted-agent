@@ -1,10 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>My Chat</title>
   <defs>
     <linearGradient id="g" x1="8" y1="8" x2="56" y2="56">
-      <stop stop-color="#238c70"/>
-      <stop offset="1" stop-color="#165744"/>
+      <stop stop-color="#58a6ff"/>
+      <stop offset="1" stop-color="#0969da"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="18" fill="url(#g)"/>
-  <path fill="#fff" d="M20 15h28v9H31v8h15v9H31v16H20z"/>
+  <rect width="64" height="64" rx="18" fill="#0d1117"/>
+  <path fill="url(#g)" d="M13 16a8 8 0 0 1 8-8h22a8 8 0 0 1 8 8v22a8 8 0 0 1-8 8H30L18 56v-10a8 8 0 0 1-5-8z"/>
+  <path fill="#fff" d="m38 16 1.7 5.3L45 23l-5.3 1.7L38 30l-1.7-5.3L31 23l5.3-1.7zM23 28h17v4H23zm0 8h12v4H23z"/>
 </svg>

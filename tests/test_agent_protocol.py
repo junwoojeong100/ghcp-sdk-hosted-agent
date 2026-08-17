@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-from gateway import build_prompt, select_requested_models
+from gateway import (
+    SYSTEM_INSTRUCTIONS,
+    _extract_final_content,
+    build_prompt,
+    select_requested_models,
+)
 from protocol import AgentEnvelope, parse_agent_input
 
 
@@ -64,6 +69,22 @@ def test_prompt_quotes_memory_and_history_as_untrusted_context() -> None:
     assert "<untrusted_my_chat_context>" in prompt
     assert '"personal_memory": "내 선호"' in prompt
     assert '"current_user_message": "새 질문"' in prompt
+
+
+def test_web_search_is_optional_for_stable_requests() -> None:
+    normalized_instructions = " ".join(SYSTEM_INSTRUCTIONS.split())
+    assert "Use web_search only when it materially improves correctness" in (
+        normalized_instructions
+    )
+    assert "Do not search for casual conversation" in normalized_instructions
+    assert "When you do not search, answer directly" in normalized_instructions
+    assert "omit the Sources section" in normalized_instructions
+    assert "MUST call the web_search tool" not in normalized_instructions
+
+    output = (
+        b'{"type":"assistant.message","data":{"content":"Direct answer"}}\n'
+    )
+    assert _extract_final_content(output) == "Direct answer"
 
 
 def test_attachment_and_pptx_options_are_parsed() -> None:

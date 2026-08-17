@@ -1,18 +1,18 @@
 :root {
   color-scheme: light;
-  --bg: #f7f7f5;
+  --bg: #f6f8fa;
   --panel: #ffffff;
-  --sidebar: #f0f0ed;
-  --border: #deded8;
-  --border-strong: #c9c9c1;
-  --text: #20211f;
-  --muted: #6c6d68;
-  --accent: #1d7f64;
-  --accent-hover: #176b54;
-  --accent-soft: #e6f2ed;
-  --danger: #b73535;
-  --danger-soft: #fff0f0;
-  --shadow: 0 16px 50px rgb(20 24 22 / 10%);
+  --sidebar: #f0f3f6;
+  --border: #d8dee4;
+  --border-strong: #b9c2cc;
+  --text: #1f2328;
+  --muted: #59636e;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --accent-soft: #eaf2ff;
+  --danger: #cf222e;
+  --danger-soft: #ffebe9;
+  --shadow: 0 16px 50px rgb(31 35 40 / 11%);
   --sidebar-width: 278px;
   font-family:
     Inter, Pretendard, "Noto Sans KR", -apple-system, BlinkMacSystemFont,
@@ -21,19 +21,19 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #101310;
-  --panel: #191d19;
-  --sidebar: #141714;
-  --border: #303630;
-  --border-strong: #454d46;
-  --text: #edf3ee;
-  --muted: #9ba69d;
-  --accent: #58c69f;
-  --accent-hover: #6ed7b2;
-  --accent-soft: #1c382e;
-  --danger: #ff8d8d;
-  --danger-soft: #3b2023;
-  --shadow: 0 18px 55px rgb(0 0 0 / 38%);
+  --bg: #0d1117;
+  --panel: #1c2128;
+  --sidebar: #161b22;
+  --border: #30363d;
+  --border-strong: #484f58;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --accent-soft: #1f2d3d;
+  --danger: #ff7b72;
+  --danger-soft: #3d1f24;
+  --shadow: 0 18px 55px rgb(0 0 0 / 40%);
 }
 
 * {
@@ -71,7 +71,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgb(29 127 100 / 24%);
+  outline: 3px solid rgb(31 111 235 / 28%);
   outline-offset: 2px;
 }
 
@@ -114,9 +114,9 @@ textarea:focus-visible {
 
 .auth-page {
   background:
-    radial-gradient(circle at 15% 10%, rgb(55 152 121 / 17%), transparent 36%),
-    radial-gradient(circle at 90% 90%, rgb(74 99 176 / 12%), transparent 34%),
-    #f7f7f3;
+    radial-gradient(circle at 15% 10%, rgb(31 111 235 / 14%), transparent 36%),
+    radial-gradient(circle at 90% 90%, rgb(84 174 255 / 10%), transparent 34%),
+    #f6f8fa;
 }
 
 .auth-shell {
@@ -139,9 +139,9 @@ textarea:focus-visible {
 
 .brand-mark {
   align-items: center;
-  background: linear-gradient(135deg, #238c70, #165744);
+  background: linear-gradient(135deg, #388bfd, #0969da);
   border-radius: 18px;
-  box-shadow: 0 10px 22px rgb(29 127 100 / 20%);
+  box-shadow: 0 10px 22px rgb(31 111 235 / 22%);
   color: white;
   display: flex;
   font-size: 25px;
@@ -159,6 +159,17 @@ textarea:focus-visible {
   height: 34px;
   margin: 0;
   width: 34px;
+}
+
+.brand-symbol {
+  background: transparent;
+  overflow: hidden;
+}
+
+.brand-symbol img {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .eyebrow {
@@ -538,7 +549,7 @@ textarea:focus {
 
 .status-connected {
   background: var(--accent-soft);
-  border-color: #c9e5d9;
+  border-color: #b6d7ff;
   color: var(--accent);
 }
 
@@ -874,7 +885,7 @@ textarea:focus {
 .pending-file {
   align-items: center;
   background: var(--accent-soft);
-  border: 1px solid #c9e5d9;
+  border: 1px solid #b6d7ff;
   border-radius: 999px;
   color: var(--accent);
   display: inline-flex;
@@ -910,7 +921,7 @@ textarea:focus {
 }
 
 .pending-file button:hover {
-  background: rgb(29 127 100 / 12%);
+  background: rgb(31 111 235 / 14%);
 }
 
 .composer {
@@ -918,7 +929,7 @@ textarea:focus {
   background: var(--panel);
   border: 1px solid var(--border-strong);
   border-radius: 20px;
-  box-shadow: 0 7px 25px rgb(24 28 26 / 8%);
+  box-shadow: 0 7px 25px rgb(31 35 40 / 9%);
   display: flex;
   gap: 8px;
   margin: 0 auto;
@@ -966,7 +977,7 @@ textarea:focus {
 
 .composer:focus-within {
   border-color: #aaa;
-  box-shadow: 0 9px 28px rgb(24 28 26 / 11%);
+  box-shadow: 0 9px 28px rgb(31 35 40 / 11%);
 }
 
 .composer-disabled {
@@ -1141,22 +1152,22 @@ textarea:focus {
 
 html[data-theme="dark"] .auth-page {
   background:
-    radial-gradient(circle at 15% 10%, rgb(57 161 126 / 16%), transparent 38%),
-    radial-gradient(circle at 90% 90%, rgb(77 102 180 / 12%), transparent 36%),
-    #0f120f;
+    radial-gradient(circle at 15% 10%, rgb(56 139 253 / 16%), transparent 38%),
+    radial-gradient(circle at 90% 90%, rgb(84 174 255 / 9%), transparent 36%),
+    #0d1117;
 }
 
 html[data-theme="dark"] .auth-card {
-  background: rgb(25 29 25 / 94%);
-  border-color: rgb(255 255 255 / 7%);
+  background: rgb(28 33 40 / 95%);
+  border-color: rgb(240 246 252 / 8%);
 }
 
 html[data-theme="dark"] .button-secondary {
-  background: #282d28;
+  background: #21262d;
 }
 
 html[data-theme="dark"] .button-secondary:hover {
-  background: #343a34;
+  background: #30363d;
 }
 
 html[data-theme="dark"] .button-danger-ghost:hover {
@@ -1168,27 +1179,27 @@ html[data-theme="dark"] .conversation-item:hover,
 html[data-theme="dark"] .conversation-item.active,
 html[data-theme="dark"] .sidebar-action:hover,
 html[data-theme="dark"] .icon-button:hover {
-  background: #252a25;
+  background: #21262d;
 }
 
 html[data-theme="dark"] .conversation-skeleton {
-  background: linear-gradient(90deg, #252a25, #303630, #252a25);
+  background: linear-gradient(90deg, #21262d, #30363d, #21262d);
   background-size: 200% 100%;
 }
 
 html[data-theme="dark"] .user-avatar {
-  background: #dce7de;
-  color: #162019;
+  background: #dbeafe;
+  color: #0c2d6b;
 }
 
 html[data-theme="dark"] .connection-status,
 html[data-theme="dark"] .model-controls select {
-  background: #222722;
+  background: #161b22;
 }
 
 html[data-theme="dark"] .status-connected {
-  background: #19372b;
-  border-color: #285a46;
+  background: #1b3552;
+  border-color: #285d8f;
 }
 
 html[data-theme="dark"] .status-degraded,
@@ -1204,15 +1215,15 @@ html[data-theme="dark"] .status-error {
 }
 
 html[data-theme="dark"] .message-row.user .message-bubble {
-  background: #292e29;
+  background: #21262d;
 }
 
 html[data-theme="dark"] .message-attachment {
-  background: #222722;
+  background: #161b22;
 }
 
 html[data-theme="dark"] .typing i {
-  background: #a5afa7;
+  background: #8b949e;
 }
 
 html[data-theme="dark"] .suggestions button:hover {
@@ -1220,8 +1231,8 @@ html[data-theme="dark"] .suggestions button:hover {
 }
 
 html[data-theme="dark"] .pending-file {
-  background: #19372b;
-  border-color: #285a46;
+  background: #1b3552;
+  border-color: #285d8f;
 }
 
 html[data-theme="dark"] .composer {
@@ -1229,36 +1240,36 @@ html[data-theme="dark"] .composer {
 }
 
 html[data-theme="dark"] .composer:focus-within {
-  border-color: #637067;
+  border-color: #58a6ff;
   box-shadow: 0 10px 32px rgb(0 0 0 / 36%);
 }
 
 html[data-theme="dark"] .composer-tool:hover {
-  background: #252a25;
+  background: #21262d;
 }
 
 html[data-theme="dark"] .composer-disabled {
-  background: #161916;
+  background: #0d1117;
 }
 
 html[data-theme="dark"] .send-button {
-  background: #e4ece6;
-  color: #162019;
+  background: var(--accent);
+  color: #0d1117;
 }
 
 html[data-theme="dark"] .send-button:hover {
-  background: var(--accent);
-  color: #0d1711;
+  background: var(--accent-hover);
+  color: #0d1117;
 }
 
 html[data-theme="dark"] .send-button:disabled {
-  background: #444b45;
-  color: #929b94;
+  background: #30363d;
+  color: #6e7681;
 }
 
 html[data-theme="dark"] .toast {
-  background: #e4ece6;
-  color: #162019;
+  background: #e6edf3;
+  color: #1f2328;
 }
 
 .sidebar-backdrop,

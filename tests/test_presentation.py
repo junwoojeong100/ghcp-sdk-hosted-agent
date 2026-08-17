@@ -60,3 +60,22 @@ def test_presentation_uses_structured_varied_layouts(tmp_path) -> None:
     assert len(presentation.slides[2].shapes) >= 8
     assert len(presentation.slides[3].shapes) >= 12
     assert len(presentation.slides[4].shapes) >= 6
+    assert str(presentation.slides[0].background.fill.fore_color.rgb) == "0D1117"
+
+    card_text_sizes = [
+        run.font.size.pt
+        for shape in presentation.slides[3].shapes
+        if shape.has_text_frame
+        for paragraph in shape.text_frame.paragraphs
+        for run in paragraph.runs
+        if "의무 웹 검색" in run.text and run.font.size
+    ]
+    column_text_sizes = [
+        paragraph.font.size.pt
+        for shape in presentation.slides[4].shapes
+        if shape.has_text_frame
+        for paragraph in shape.text_frame.paragraphs
+        if "4개 고정 사용자" in paragraph.text and paragraph.font.size
+    ]
+    assert card_text_sizes == [18]
+    assert column_text_sizes == [17]

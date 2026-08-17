@@ -71,10 +71,18 @@ def test_static_assets_use_same_origin_relative_urls(client: TestClient) -> None
     assert 'href="/static/app.css"' in response.text
     assert 'href="/static/favicon.svg"' in response.text
     assert 'src="/static/theme.js"' in response.text
+    assert 'src="/static/favicon.svg" alt=""' in response.text
     assert 'id="theme-toggle"' in response.text
     assert "<h1>My Chat</h1>" in response.text
     assert "My Chat" in response.text
+    assert ">F<" not in response.text
     assert "http://testserver/static" not in response.text
+
+    favicon = client.get("/static/favicon.svg")
+    assert favicon.status_code == 200
+    assert "<title>My Chat</title>" in favicon.text
+    assert "#58a6ff" in favicon.text
+    assert "#238c70" not in favicon.text
 
 
 def test_first_login_rejects_bootstrap_password(client: TestClient) -> None:
