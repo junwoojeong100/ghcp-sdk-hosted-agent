@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: ">=1.0.0-beta.10"
+name: family-copilot-chat
+services:
+  family-copilot-chat:
+    project: src/family_copilot_agent
+    host: azure.ai.agent
+    language: python
+    uses:
+      - ai-project
+    codeConfiguration:
+      entryPoint: main.py
+      runtime: python_3_13
+      dependencyResolution: remote_build
+    container:
+      resources:
+        cpu: "1"
+        memory: 2Gi
+    description: My Chat, powered by the GitHub Copilot SDK with mandatory web search.
+    displayName: My Chat
+    environmentVariables:
+      - name: APP_ENV
+        value: production
+      - name: COPILOT_GITHUB_TOKEN
+        value: ${{connections.copilot-secrets.credentials.github_token}}
+      - name: COPILOT_CLI_EXTRACT_DIR
+        value: /tmp/copilot-cli
+      - name: DEFAULT_COPILOT_MODEL
+        value: gpt-5.6-sol
+    kind: hosted
+    metadata:
+      tags:
+        - GitHub Copilot SDK
+        - My Chat
+        - Responses Protocol
+        - Python
+    name: family-copilot-chat
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+  ai-project:
+    host: azure.ai.project
+  copilot-secrets:
+    host: azure.ai.connection
+    uses:
+      - ai-project
+    category: CustomKeys
+    target: https://github.com
+    authType: CustomKeys
+    credentials:
+      keys:
+        github_token: ${COPILOT_GITHUB_TOKEN}
+infra:
+  provider: microsoft.foundry

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}로그인 · My Chat{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<main class="auth-shell">
+  <section class="auth-card">
+    <div class="brand-mark" aria-hidden="true">F</div>
+    <p class="eyebrow">PRIVATE MY CHAT</p>
+    <h1>My Chat</h1>
+    <p class="auth-copy">가족 전용 AI 공간입니다. 본인 계정으로 로그인해 주세요.</p>
+
+    {% if error %}
+      <div class="alert alert-error" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login" class="auth-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <label for="username">사용자</label>
+      <select id="username" name="username" required autofocus>
+        {% for username in family_users %}
+          <option value="{{ username }}">{{ username }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="password">비밀번호</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+      <button type="submit" class="button button-primary button-wide">로그인</button>
+    </form>
+    <p class="auth-note">최초 로그인 후 본인만의 새 비밀번호를 반드시 설정합니다.</p>
+  </section>
+</main>
+{% endblock %}

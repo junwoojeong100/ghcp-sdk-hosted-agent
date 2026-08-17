@@ -1,0 +1,5 @@
+azure-ai-agentserver-core==2.0.0
+azure-ai-agentserver-responses==2.0.0
+github-copilot-sdk==1.0.9
+pydantic>=2.11,<3
+python-dotenv>=1.1,<2

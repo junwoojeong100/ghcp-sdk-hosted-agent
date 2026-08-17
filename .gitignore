@@ -1,0 +1,14 @@
+.azure/
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+data/
+*.db
+*.db-shm
+*.db-wal
+azd-ai-agents-*.log
+.DS_Store

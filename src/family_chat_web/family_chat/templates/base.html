@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}My Chat{% endblock %}</title>
+    <script src="/static/theme.js"></script>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/app.css">
+  </head>
+  <body class="{% block body_class %}{% endblock %}"{% if user %} data-username="{{ user.username }}"{% endif %}>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="다크 모드로 전환" aria-pressed="false" title="테마 변경">
+      <span id="theme-icon" aria-hidden="true">◐</span>
+    </button>
+    {% block content %}{% endblock %}
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

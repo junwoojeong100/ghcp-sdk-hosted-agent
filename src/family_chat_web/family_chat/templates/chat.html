@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}My Chat{% endblock %}
+{% block body_class %}chat-page{% endblock %}
+{% block content %}
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <a class="brand" href="/chat" aria-label="My Chat 홈">
+        <span class="brand-mark brand-mark-small" aria-hidden="true">F</span>
+        <span>My Chat</span>
+      </a>
+      <button class="icon-button mobile-only" id="close-sidebar" type="button" aria-label="사이드바 닫기">×</button>
+    </div>
+
+    <button type="button" class="new-chat-button" id="new-chat">
+      <span aria-hidden="true">＋</span>
+      새 대화
+    </button>
+
+    <nav class="conversation-list" id="conversation-list" aria-label="대화 기록"></nav>
+
+    <div class="sidebar-footer">
+      <button type="button" class="sidebar-action" id="open-memory">
+        <span aria-hidden="true">✦</span>
+        개인 메모리
+      </button>
+      <button type="button" class="sidebar-action" id="open-settings">
+        <span class="user-avatar" aria-hidden="true">{{ user.username[0] | upper }}</span>
+        <span class="sidebar-user">
+          <strong>{{ user.username }}</strong>
+          <small>설정</small>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <main class="chat-main">
+    <header class="chat-header">
+      <button class="icon-button mobile-only" id="open-sidebar" type="button" aria-label="사이드바 열기">☰</button>
+      <div class="model-toolbar">
+        <div class="connection-status status-loading" id="connection-status" role="status" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="connection-status-text">GitHub Copilot 연결 중</span>
+        </div>
+        <div class="model-controls">
+          <label>
+            <span>모델</span>
+            <select id="model-select" aria-label="AI 모델" disabled>
+              <option selected>모델 불러오는 중...</option>
+            </select>
+          </label>
+          <label>
+            <span>추론 강도</span>
+            <select id="reasoning-select" aria-label="추론 강도" disabled>
+              <option value="default">모델 기본값</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <button class="icon-button" id="delete-chat" type="button" aria-label="현재 대화 삭제" title="현재 대화 삭제" disabled>⌫</button>
+    </header>
+
+    <div class="model-warning hidden" id="model-warning" role="alert">
+      <span id="model-warning-text"></span>
+      <button type="button" id="retry-models">다시 시도</button>
+    </div>
+
+    <section class="message-scroller" id="message-scroller">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-orb" aria-hidden="true">✦</div>
+        <p class="empty-kicker">{{ user.username }}님의 개인 AI</p>
+        <h1>무엇을 도와드릴까요?</h1>
+        <p>모델과 추론 강도를 선택하고 질문하세요. 대화와 메모리는 계정별로 분리됩니다.</p>
+        <div class="suggestions">
+          <button type="button" data-suggestion="오늘 해야 할 일을 우선순위대로 정리하는 방법을 알려줘.">오늘 계획 정리</button>
+          <button type="button" data-suggestion="이 내용을 초등학생도 이해할 수 있게 쉽게 설명해줘.">쉽게 설명하기</button>
+          <button type="button" data-suggestion="가족 여행을 준비할 때 필요한 체크리스트를 만들어줘.">여행 체크리스트</button>
+          <button type="button" data-suggestion="최신 자료를 조사해서 핵심 내용을 발표용 슬라이드로 만들어줘." data-ppt-suggestion="true">PPT 슬라이드 만들기</button>
+        </div>
+      </div>
+      <div class="messages" id="messages" aria-live="polite"></div>
+    </section>
+
+    <footer class="composer-wrap">
+      <div class="pending-attachments hidden" id="pending-attachments" aria-live="polite"></div>
+      <form class="composer" id="composer">
+        <div class="composer-tools">
+          <button type="button" class="composer-tool" id="attach-file" aria-label="파일 첨부" title="파일 첨부">
+            <span aria-hidden="true">＋</span>
+            <span>파일</span>
+          </button>
+          <button type="button" class="composer-tool" id="ppt-mode" aria-label="PPT 만들기 모드" aria-pressed="false" title="PPT 만들기">
+            <span aria-hidden="true">▦</span>
+            <span>PPT</span>
+          </button>
+        </div>
+        <textarea id="message-input" rows="1" maxlength="12000" placeholder="GitHub Copilot에 연결하는 중..." aria-label="메시지" disabled></textarea>
+        <button type="submit" class="send-button" id="send-button" aria-label="전송" disabled>↑</button>
+        <input id="file-input" type="file" multiple hidden accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.xlsx,.pptx">
+      </form>
+      <p class="composer-note">파일 최대 5개 · 개별 8MB · AI 답변의 중요한 정보는 다시 확인하세요.</p>
+    </footer>
+  </main>
+</div>
+
+<dialog class="modal" id="memory-dialog">
+  <form method="dialog" class="modal-card" id="memory-form">
+    <div class="modal-header">
+      <div>
+        <p class="eyebrow">PERSONAL MEMORY</p>
+        <h2>개인 메모리</h2>
+      </div>
+      <button class="icon-button" id="close-memory" type="button" aria-label="닫기">×</button>
+    </div>
+    <p class="modal-copy">선호, 관심사, 자주 쓰는 정보 등을 적으면 답변에 반영됩니다. 이 내용은 본인 대화에만 사용됩니다.</p>
+    <textarea id="memory-input" maxlength="8000" rows="12" placeholder="예: 나는 한국어 답변을 선호하고, 요리는 맵지 않은 메뉴를 좋아해."></textarea>
+    <div class="character-count"><span id="memory-count">0</span> / 8000</div>
+    <div class="modal-actions">
+      <button type="button" class="button button-danger-ghost" id="delete-memory">메모리 삭제</button>
+      <button type="submit" class="button button-primary">저장</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" id="settings-dialog">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <p class="eyebrow">ACCOUNT</p>
+        <h2>{{ user.username }} 설정</h2>
+      </div>
+      <button class="icon-button" id="close-settings" type="button" aria-label="닫기">×</button>
+    </div>
+
+    <form id="password-form" class="settings-section">
+      <h3>비밀번호 변경</h3>
+      <label for="current-password">현재 비밀번호</label>
+      <input id="current-password" type="password" autocomplete="current-password" required>
+      <label for="settings-new-password">새 비밀번호</label>
+      <input id="settings-new-password" type="password" autocomplete="new-password" minlength="10" required>
+      <label for="settings-confirm-password">새 비밀번호 확인</label>
+      <input id="settings-confirm-password" type="password" autocomplete="new-password" minlength="10" required>
+      <button type="submit" class="button button-secondary">비밀번호 변경</button>
+      <p class="form-message" id="password-message" role="status"></p>
+    </form>
+
+    <div class="settings-section danger-zone">
+      <h3>데이터 관리</h3>
+      <p>내 채팅 기록 전체를 영구적으로 삭제합니다.</p>
+      <button type="button" class="button button-danger-ghost" id="delete-all-chats">모든 채팅 삭제</button>
+    </div>
+
+    <form method="post" action="/logout" class="settings-section logout-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <button type="submit" class="button button-secondary button-wide">로그아웃</button>
+    </form>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/app.js" defer></script>
+{% endblock %}
