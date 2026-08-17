@@ -182,6 +182,7 @@ def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
         )
         assert sent.status_code == 200
         assert sent.json()["assistant_message"]["content"].startswith("가짜 답변:")
+        assert sent.json()["assistant_message"]["duration_ms"] >= 0
         assert fake_agent.calls[-1]["memory"] == "항상 한국어로 간결하게 답해줘."
 
         history = jw_client.get(

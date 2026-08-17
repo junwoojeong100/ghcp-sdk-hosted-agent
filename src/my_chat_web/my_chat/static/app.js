@@ -232,9 +232,14 @@
     if (message.role === "assistant" && message.model) {
       const meta = document.createElement("div");
       meta.className = "message-meta";
+      const durationMs = Number(message.duration_ms);
+      const duration =
+        Number.isFinite(durationMs) && durationMs >= 0
+          ? ` · ${(durationMs / 1000).toFixed(durationMs < 10000 ? 1 : 0)}초`
+          : "";
       meta.textContent = `${message.model} · ${
         message.reasoning_effort || "default"
-      }`;
+      }${duration}`;
       bubble.append(meta);
     } else if (message.status === "error" && message.error) {
       const meta = document.createElement("div");
@@ -472,7 +477,13 @@
     const available = [...elements.reasoningSelect.options].some(
       (option) => option.value === preferred,
     );
-    elements.reasoningSelect.value = available ? preferred : "default";
+    const fastDefault =
+      preferred === "default" && efforts.includes("low") ? "low" : preferred;
+    const fastDefaultAvailable = [...elements.reasoningSelect.options].some(
+      (option) => option.value === fastDefault,
+    );
+    elements.reasoningSelect.value =
+      available && fastDefaultAvailable ? fastDefault : "default";
   }
 
   async function loadModels(forceRefresh = false) {

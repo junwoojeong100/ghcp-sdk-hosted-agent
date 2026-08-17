@@ -5,6 +5,7 @@ import base64
 import logging
 import os
 import re
+import time
 import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator
@@ -291,7 +292,20 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database.initialize(settings.bootstrap_password)
         settings.upload_dir.mkdir(parents=True, exist_ok=True)
+
+        async def warm_models() -> None:
+            try:
+                await app.state.agent_client.list_models()
+            except AgentServiceError as exc:
+                logger.warning("Agent model warmup failed: %s", exc)
+            except Exception:
+                logger.exception("Unexpected agent model warmup failure")
+
+        warmup_task = asyncio.create_task(warm_models())
         yield
+        if not warmup_task.done():
+            warmup_task.cancel()
+        await asyncio.gather(warmup_task, return_exceptions=True)
         close = getattr(app.state.agent_client, "close", None)
         if close:
             result = close()
@@ -661,6 +675,7 @@ def create_app(
                 reasoning_effort=payload.reasoning_effort,
             )
 
+            response_started_at = time.monotonic()
             try:
                 answer = await app.state.agent_client.chat(
                     model=payload.model,
@@ -706,9 +721,12 @@ def create_app(
                         user.id,
                         conversation_id,
                         "assistant",
-                        f"웹 검색을 바탕으로 {slide_count}장짜리 PPT를 만들었습니다. 아래 파일을 다운로드하세요.",
+                        f"{slide_count}장짜리 PPT를 만들었습니다. 아래 파일을 다운로드하세요.",
                         model=payload.model,
                         reasoning_effort=payload.reasoning_effort,
+                        duration_ms=round(
+                            (time.monotonic() - response_started_at) * 1000
+                        ),
                     )
                     generated = database.add_attachment(
                         attachment_id=attachment_id,
@@ -742,6 +760,9 @@ def create_app(
                     answer,
                     model=payload.model,
                     reasoning_effort=payload.reasoning_effort,
+                    duration_ms=round(
+                        (time.monotonic() - response_started_at) * 1000
+                    ),
                 )
 
         return {

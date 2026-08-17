@@ -43,6 +43,8 @@ class FoundryAgentClient:
         self._models_cache: dict[str, Any] | None = None
         self._models_cached_at = 0.0
         self._models_lock = asyncio.Lock()
+        self._agent_session_id: str | None = None
+        self._session_init_lock = asyncio.Lock()
 
     @property
     def _is_local(self) -> bool:
@@ -65,8 +67,10 @@ class FoundryAgentClient:
             ) from exc
         return {"Authorization": f"Bearer {token.token}"}
 
-    async def _invoke(self, envelope: dict[str, Any]) -> dict[str, Any]:
+    async def _invoke_request(self, envelope: dict[str, Any]) -> dict[str, Any]:
         headers = await self._authorization_headers()
+        if self._agent_session_id:
+            headers["x-agent-session-id"] = self._agent_session_id
         body = {
             "input": json.dumps(envelope, ensure_ascii=False),
             "stream": False,
@@ -92,6 +96,10 @@ class FoundryAgentClient:
                     f"The Foundry agent request failed after it was sent: {exc}"
                 ) from exc
 
+            session_id = response.headers.get("x-agent-session-id")
+            if session_id:
+                self._agent_session_id = session_id
+                headers["x-agent-session-id"] = session_id
             if response.status_code == 424 and attempt < 2:
                 await asyncio.sleep(15 * (attempt + 1))
                 continue
@@ -129,6 +137,13 @@ class FoundryAgentClient:
                 str(result.get("detail") or result.get("error") or "Agent request failed.")
             )
         return result
+
+    async def _invoke(self, envelope: dict[str, Any]) -> dict[str, Any]:
+        if self._agent_session_id is None:
+            async with self._session_init_lock:
+                if self._agent_session_id is None:
+                    return await self._invoke_request(envelope)
+        return await self._invoke_request(envelope)
 
     async def list_models(self, force_refresh: bool = False) -> dict[str, Any]:
         async with self._models_lock:

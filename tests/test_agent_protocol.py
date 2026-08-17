@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from gateway import (
     SYSTEM_INSTRUCTIONS,
-    _extract_final_content,
+    CopilotGateway,
     build_prompt,
     select_requested_models,
 )
@@ -81,10 +83,25 @@ def test_web_search_is_optional_for_stable_requests() -> None:
     assert "omit the Sources section" in normalized_instructions
     assert "MUST call the web_search tool" not in normalized_instructions
 
-    output = (
-        b'{"type":"assistant.message","data":{"content":"Direct answer"}}\n'
+def test_chat_skips_redundant_model_discovery() -> None:
+    gateway = CopilotGateway()
+    gateway._get_client = AsyncMock(
+        side_effect=AssertionError("chat should not list models")
     )
-    assert _extract_final_content(output) == "Direct answer"
+    gateway._run_cli_chat = AsyncMock(return_value="Fast answer")
+
+    result = asyncio.run(
+        gateway.chat(
+            AgentEnvelope(
+                model="gpt-5.6-sol",
+                reasoning_effort="low",
+                user_message="간단히 답해줘",
+            )
+        )
+    )
+
+    assert result == "Fast answer"
+    gateway._get_client.assert_not_awaited()
 
 
 def test_attachment_and_pptx_options_are_parsed() -> None:

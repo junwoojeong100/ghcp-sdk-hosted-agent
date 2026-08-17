@@ -111,6 +111,7 @@ class Database:
                     status TEXT NOT NULL DEFAULT 'complete'
                         CHECK (status IN ('pending', 'complete', 'error')),
                     error TEXT,
+                    duration_ms INTEGER,
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created
@@ -153,6 +154,16 @@ class Database:
                     ALTER TABLE users
                     ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1
                     """
+                )
+            message_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(messages)"
+                ).fetchall()
+            }
+            if "duration_ms" not in message_columns:
+                connection.execute(
+                    "ALTER TABLE messages ADD COLUMN duration_ms INTEGER"
                 )
 
             existing = {
@@ -426,6 +437,7 @@ class Database:
         reasoning_effort: str | None = None,
         status: str = "complete",
         error: str | None = None,
+        duration_ms: int | None = None,
     ) -> dict[str, Any]:
         message_id = str(uuid.uuid4())
         created_at = utc_iso()
@@ -434,9 +446,9 @@ class Database:
                 """
                 INSERT INTO messages (
                     id, conversation_id, user_id, role, content, model,
-                    reasoning_effort, status, error, created_at
+                    reasoning_effort, status, error, duration_ms, created_at
                 )
-                SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 WHERE EXISTS (
                     SELECT 1 FROM conversations WHERE id = ? AND user_id = ?
                 )
@@ -451,6 +463,7 @@ class Database:
                     reasoning_effort,
                     status,
                     error,
+                    duration_ms,
                     created_at,
                     conversation_id,
                     user_id,
@@ -472,6 +485,7 @@ class Database:
             "reasoning_effort": reasoning_effort,
             "status": status,
             "error": error,
+            "duration_ms": duration_ms,
             "created_at": created_at,
             "attachments": [],
         }
@@ -561,7 +575,8 @@ class Database:
                 """
                 SELECT * FROM (
                     SELECT id, conversation_id, role, content, model,
-                           reasoning_effort, status, error, created_at
+                           reasoning_effort, status, error, duration_ms,
+                           created_at
                     FROM messages
                     WHERE conversation_id = ? AND user_id = ?
                     ORDER BY created_at DESC
