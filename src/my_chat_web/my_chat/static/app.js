@@ -88,6 +88,37 @@
     return payload;
   }
 
+  async function streamApi(path, options, onEvent) {
+    const headers = new Headers(options.headers || {});
+    headers.set("X-CSRF-Token", csrfToken);
+    const response = await fetch(path, { ...options, headers });
+    if (response.status === 401) {
+      window.location.assign("/login");
+      throw new Error("로그인이 만료되었습니다.");
+    }
+    if (!response.ok || !response.body) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "스트리밍 요청을 시작하지 못했습니다.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        onEvent(event);
+      }
+      if (done) break;
+    }
+    if (buffer.trim()) onEvent(JSON.parse(buffer));
+  }
+
   function showToast(message) {
     elements.toast.textContent = message;
     elements.toast.classList.add("visible");
@@ -693,6 +724,7 @@
 
     let optimistic = null;
     let typing = null;
+    let streamingRow = null;
     try {
       if (!state.currentConversation) {
         await createConversation();
@@ -717,21 +749,66 @@
       for (const file of state.pendingFiles) {
         formData.append("files", file);
       }
-      const payload = await api(
-        `/api/conversations/${targetConversationId}/messages`,
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
+      let payload = null;
+      if (state.pptMode) {
+        payload = await api(
+          `/api/conversations/${targetConversationId}/messages`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+      } else {
+        let streamText = null;
+        await streamApi(
+          `/api/conversations/${targetConversationId}/messages/stream`,
+          { method: "POST", body: formData },
+          (event) => {
+            if (event.type === "delta") {
+              typing?.remove();
+              typing = null;
+              if (!streamingRow) {
+                streamingRow = appendMessage(
+                  {
+                    role: "assistant",
+                    content: "",
+                    model:
+                      elements.webSearchSelect.value === "required"
+                        ? "gpt-5.6-luna"
+                        : elements.modelSelect.value,
+                    reasoning_effort: elements.reasoningSelect.value,
+                  },
+                  true,
+                );
+                const bubble =
+                  streamingRow.querySelector(".message-bubble");
+                const meta = bubble.querySelector(".message-meta");
+                streamText = document.createTextNode("");
+                bubble.insertBefore(streamText, meta);
+              }
+              streamText.data += event.delta;
+              scrollToBottom();
+            } else if (event.type === "done") {
+              payload = event;
+            } else if (event.type === "error") {
+              throw new Error(event.detail || "답변 스트리밍에 실패했습니다.");
+            }
+          },
+        );
+        if (!payload) {
+          throw new Error("답변 완료 이벤트를 받지 못했습니다.");
+        }
+      }
       if (state.currentConversation?.id !== targetConversationId) {
         optimistic.remove();
-        typing.remove();
+        typing?.remove();
+        streamingRow?.remove();
         await loadConversations(false);
         return;
       }
       optimistic.remove();
-      typing.remove();
+      typing?.remove();
+      streamingRow?.remove();
       appendMessage(payload.user_message);
       appendMessage(payload.assistant_message);
       state.currentConversation = payload.conversation;
@@ -740,6 +817,7 @@
       await loadConversations(false);
     } catch (error) {
       typing?.remove();
+      streamingRow?.remove();
       if (optimistic) {
         markMessageFailed(optimistic, effectiveContent, error);
       } else {

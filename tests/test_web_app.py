@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+import json
 import re
 
 from fastapi.testclient import TestClient
@@ -187,6 +188,7 @@ def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
         assert sent.json()["assistant_message"]["duration_ms"] >= 0
         assert fake_agent.calls[-1]["memory"] == "항상 한국어로 간결하게 답해줘."
         assert fake_agent.calls[-1]["web_search_mode"] == "required"
+        assert fake_agent.calls[-1]["model"] == "gpt-5.6-luna"
 
         history = jw_client.get(
             f"/api/conversations/{conversation_id}"
@@ -236,6 +238,41 @@ def test_conversation_and_memory_deletion(app) -> None:
         )
         assert client.get("/api/conversations").json()["conversations"] == []
         assert client.get("/api/memory").json()["memory"]["content"] == ""
+
+
+def test_streaming_chat_returns_deltas(app) -> None:
+    with TestClient(app) as client:
+        csrf = finish_first_login(client, "yw", "MySecure1234!")
+        conversation_id = client.post(
+            "/api/conversations",
+            headers={"X-CSRF-Token": csrf},
+            json={"model": "gpt-5.6-sol", "reasoning_effort": "low"},
+        ).json()["conversation"]["id"]
+
+        response = client.post(
+            f"/api/conversations/{conversation_id}/messages/stream",
+            headers={"X-CSRF-Token": csrf},
+            data={
+                "content": "스트리밍 테스트",
+                "model": "gpt-5.6-sol",
+                "reasoning_effort": "low",
+                "web_search_mode": "disabled",
+                "output_format": "text",
+            },
+        )
+
+        assert response.status_code == 200
+        events = [
+            json.loads(line)
+            for line in response.text.splitlines()
+            if line.strip()
+        ]
+        deltas = [
+            event["delta"] for event in events if event["type"] == "delta"
+        ]
+        done = next(event for event in events if event["type"] == "done")
+        assert "".join(deltas) == "가짜 답변: 스트리밍 테스트"
+        assert done["assistant_message"]["duration_ms"] >= 0
 
 
 def test_file_attachment_is_persisted_and_user_isolated(app, fake_agent) -> None:

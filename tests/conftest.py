@@ -61,6 +61,13 @@ class FakeAgentClient:
             )
         return f"가짜 답변: {payload['user_message']}"
 
+    async def chat_stream(self, **payload: Any):
+        self.calls.append(payload)
+        answer = f"가짜 답변: {payload['user_message']}"
+        midpoint = max(1, len(answer) // 2)
+        yield answer[:midpoint]
+        yield answer[midpoint:]
+
     async def close(self) -> None:
         return None
 

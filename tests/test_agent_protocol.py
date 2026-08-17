@@ -87,13 +87,13 @@ def test_web_search_mode_changes_prompt_directive() -> None:
         )
     )
 
-    assert "MUST call web_search" in required
-    assert "Do not call web_search" in disabled
+    assert "MUST use web_search or web_fetch" in required
+    assert "Do not call any web tool" in disabled
 
 
 def test_web_search_is_optional_for_stable_requests() -> None:
     normalized_instructions = " ".join(SYSTEM_INSTRUCTIONS.split())
-    assert "Use web_search only when it materially improves correctness" in (
+    assert "Use the available web tools" in (
         normalized_instructions
     )
     assert "Do not search for casual conversation" in normalized_instructions
@@ -101,12 +101,19 @@ def test_web_search_is_optional_for_stable_requests() -> None:
     assert "omit the Sources section" in normalized_instructions
     assert "MUST call the web_search tool" not in normalized_instructions
 
+
 def test_chat_skips_redundant_model_discovery() -> None:
     gateway = CopilotGateway()
     gateway._get_client = AsyncMock(
         side_effect=AssertionError("chat should not list models")
     )
-    gateway._run_cli_chat = AsyncMock(return_value="Fast answer")
+    calls: list[str] = []
+
+    async def fake_stream(**kwargs):
+        calls.append(kwargs["web_search_mode"])
+        yield "Fast answer"
+
+    gateway._stream_sdk_chat = fake_stream
 
     result = asyncio.run(
         gateway.chat(
@@ -114,12 +121,26 @@ def test_chat_skips_redundant_model_discovery() -> None:
                 model="gpt-5.6-sol",
                 reasoning_effort="low",
                 user_message="간단히 답해줘",
+                web_search_mode="disabled",
             )
         )
     )
 
     assert result == "Fast answer"
     gateway._get_client.assert_not_awaited()
+
+    searched = asyncio.run(
+        gateway.chat(
+            AgentEnvelope(
+                model="gpt-5.6-sol",
+                reasoning_effort="low",
+                user_message="최신 정보를 검색해줘",
+                web_search_mode="required",
+            )
+        )
+    )
+    assert searched == "Fast answer"
+    assert calls == ["disabled", "required"]
 
 
 def test_attachment_and_pptx_options_are_parsed() -> None:

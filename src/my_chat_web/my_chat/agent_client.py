@@ -210,6 +210,114 @@ class FoundryAgentClient:
             raise AgentServiceError("The Foundry agent returned an empty answer.")
         return content
 
+    async def _stream_chat_request(
+        self,
+        envelope: dict[str, Any],
+    ):
+        headers = await self._authorization_headers()
+        body: dict[str, Any] = {
+            "input": json.dumps(envelope, ensure_ascii=False),
+            "stream": True,
+        }
+        if self._agent_session_id:
+            body["agent_session_id"] = self._agent_session_id
+
+        for attempt in range(3):
+            async with self._http.stream(
+                "POST",
+                self.settings.agent_endpoint,
+                json=body,
+                headers=headers,
+            ) as response:
+                session_id = response.headers.get("x-agent-session-id")
+                if session_id:
+                    self._agent_session_id = session_id
+                    body["agent_session_id"] = session_id
+                if response.status_code == 424 and attempt < 2:
+                    await response.aread()
+                    await asyncio.sleep(15 * (attempt + 1))
+                    continue
+                if response.status_code == 429 and attempt < 2:
+                    retry_after = response.headers.get("Retry-After", "5")
+                    try:
+                        delay = min(max(float(retry_after), 1), 30)
+                    except ValueError:
+                        delay = 5
+                    await response.aread()
+                    await asyncio.sleep(delay)
+                    continue
+                if response.is_error:
+                    detail = (await response.aread()).decode(
+                        "utf-8", errors="replace"
+                    )[:500]
+                    raise AgentServiceError(
+                        f"Foundry agent returned HTTP "
+                        f"{response.status_code}: {detail}"
+                    )
+
+                async for line in response.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if not raw or raw == "[DONE]":
+                        continue
+                    try:
+                        event = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    response_data = event.get("response")
+                    if isinstance(response_data, dict):
+                        session_id = response_data.get("agent_session_id")
+                        if isinstance(session_id, str) and session_id:
+                            self._agent_session_id = session_id
+                    event_type = event.get("type")
+                    if event_type == "response.output_text.delta":
+                        delta = event.get("delta")
+                        if isinstance(delta, str) and delta:
+                            yield delta
+                    elif event_type in {
+                        "response.failed",
+                        "response.incomplete",
+                    }:
+                        raise AgentServiceError(
+                            "The Foundry agent stream failed."
+                        )
+                return
+        raise AgentServiceError("The Foundry agent stream did not start.")
+
+    async def chat_stream(
+        self,
+        *,
+        model: str,
+        reasoning_effort: str,
+        memory: str,
+        messages: list[dict[str, str]],
+        user_message: str,
+        attachments: list[dict[str, Any]] | None = None,
+        output_format: str = "text",
+        web_search_mode: str = "auto",
+    ):
+        envelope = {
+            "protocol": "my-chat/v1",
+            "action": "chat",
+            "model": model,
+            "reasoning_effort": reasoning_effort,
+            "memory": memory,
+            "messages": messages,
+            "user_message": user_message,
+            "attachments": attachments or [],
+            "output_format": output_format,
+            "web_search_mode": web_search_mode,
+        }
+        if self._agent_session_id is None:
+            async with self._session_init_lock:
+                if self._agent_session_id is None:
+                    async for chunk in self._stream_chat_request(envelope):
+                        yield chunk
+                    return
+        async for chunk in self._stream_chat_request(envelope):
+            yield chunk
+
     async def close(self) -> None:
         await self._http.aclose()
         if self._credential is not None:

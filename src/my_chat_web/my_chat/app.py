@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import logging
 import os
 import re
@@ -20,7 +21,12 @@ from fastapi import (
     Request,
     status,
 )
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -47,6 +53,7 @@ from .security import (
 ReasoningEffort = Literal["default", "low", "medium", "high", "xhigh", "max"]
 OutputFormat = Literal["text", "pptx"]
 WebSearchMode = Literal["auto", "required", "disabled"]
+FAST_WEB_SEARCH_MODEL = "gpt-5.6-luna"
 logger = logging.getLogger(__name__)
 
 ALLOWED_ATTACHMENT_TYPES = {
@@ -616,6 +623,60 @@ def create_app(
         database.delete_all_conversations(user.id)
         return None
 
+    async def prepare_user_message(
+        *,
+        user: User,
+        conversation_id: str,
+        payload: MessageCreate,
+        files: list[StarletteUploadFile],
+    ) -> tuple[
+        dict[str, Any],
+        list[dict[str, Any]],
+        list[dict[str, str]],
+    ]:
+        prior_messages = database.list_messages(user.id, conversation_id)
+        usable_history = [
+            {"role": message["role"], "content": message["content"]}
+            for message in prior_messages[-30:]
+            if message["status"] == "complete"
+        ]
+        user_message = database.add_message(
+            user.id,
+            conversation_id,
+            "user",
+            payload.content,
+            model=payload.model,
+            reasoning_effort=payload.reasoning_effort,
+            status="pending",
+        )
+        try:
+            public_attachments, agent_attachments = await _store_uploads(
+                settings=settings,
+                database=database,
+                user_id=user.id,
+                conversation_id=conversation_id,
+                message_id=user_message["id"],
+                files=files,
+            )
+        except HTTPException as exc:
+            database.mark_message_error(
+                user.id,
+                user_message["id"],
+                str(exc.detail),
+            )
+            raise
+        user_message["attachments"] = public_attachments
+        database.set_title_from_first_message(
+            user.id, conversation_id, payload.content
+        )
+        database.update_conversation(
+            user.id,
+            conversation_id,
+            model=payload.model,
+            reasoning_effort=payload.reasoning_effort,
+        )
+        return user_message, agent_attachments, usable_history
+
     @app.post("/api/conversations/{conversation_id}/messages")
     async def send_message(
         request: Request,
@@ -636,52 +697,24 @@ def create_app(
             )
 
         async with lock:
-            prior_messages = database.list_messages(user.id, conversation_id)
-            usable_history = [
-                {"role": message["role"], "content": message["content"]}
-                for message in prior_messages[-30:]
-                if message["status"] == "complete"
-            ]
-            user_message = database.add_message(
-                user.id,
-                conversation_id,
-                "user",
-                payload.content,
-                model=payload.model,
-                reasoning_effort=payload.reasoning_effort,
-                status="pending",
-            )
-            try:
-                public_attachments, agent_attachments = await _store_uploads(
-                    settings=settings,
-                    database=database,
-                    user_id=user.id,
+            user_message, agent_attachments, usable_history = (
+                await prepare_user_message(
+                    user=user,
                     conversation_id=conversation_id,
-                    message_id=user_message["id"],
+                    payload=payload,
                     files=files,
                 )
-            except HTTPException as exc:
-                database.mark_message_error(
-                    user.id,
-                    user_message["id"],
-                    str(exc.detail),
-                )
-                raise
-            user_message["attachments"] = public_attachments
-            database.set_title_from_first_message(
-                user.id, conversation_id, payload.content
-            )
-            database.update_conversation(
-                user.id,
-                conversation_id,
-                model=payload.model,
-                reasoning_effort=payload.reasoning_effort,
             )
 
             response_started_at = time.monotonic()
+            agent_model = (
+                FAST_WEB_SEARCH_MODEL
+                if payload.web_search_mode == "required"
+                else payload.model
+            )
             try:
                 answer = await app.state.agent_client.chat(
-                    model=payload.model,
+                    model=agent_model,
                     reasoning_effort=payload.reasoning_effort,
                     memory=database.get_memory(user.id)["content"],
                     messages=usable_history,
@@ -726,7 +759,7 @@ def create_app(
                         conversation_id,
                         "assistant",
                         f"{slide_count}장짜리 PPT를 만들었습니다. 아래 파일을 다운로드하세요.",
-                        model=payload.model,
+                        model=agent_model,
                         reasoning_effort=payload.reasoning_effort,
                         duration_ms=round(
                             (time.monotonic() - response_started_at) * 1000
@@ -762,7 +795,7 @@ def create_app(
                     conversation_id,
                     "assistant",
                     answer,
-                    model=payload.model,
+                    model=agent_model,
                     reasoning_effort=payload.reasoning_effort,
                     duration_ms=round(
                         (time.monotonic() - response_started_at) * 1000
@@ -774,6 +807,131 @@ def create_app(
             "assistant_message": assistant_message,
             "conversation": database.get_conversation(user.id, conversation_id),
         }
+
+    @app.post("/api/conversations/{conversation_id}/messages/stream")
+    async def stream_message(request: Request, conversation_id: str):
+        _api_csrf(request)
+        user = require_api_user(request)
+        payload, files = await _parse_message_request(request, settings)
+        if payload.output_format != "text":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Streaming is available for text answers only.",
+            )
+        if database.get_conversation(user.id, conversation_id) is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
+        lock = app.state.chat_locks[user.id]
+        if lock.locked():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Another message is still being processed.",
+            )
+
+        async def events():
+            user_message: dict[str, Any] | None = None
+            async with lock:
+                try:
+                    user_message, agent_attachments, usable_history = (
+                        await prepare_user_message(
+                            user=user,
+                            conversation_id=conversation_id,
+                            payload=payload,
+                            files=files,
+                        )
+                    )
+                    yield json.dumps(
+                        {"type": "started", "user_message": user_message},
+                        ensure_ascii=False,
+                    ) + "\n"
+                    response_started_at = time.monotonic()
+                    agent_model = (
+                        FAST_WEB_SEARCH_MODEL
+                        if payload.web_search_mode == "required"
+                        else payload.model
+                    )
+                    answer_parts: list[str] = []
+                    async for chunk in app.state.agent_client.chat_stream(
+                        model=agent_model,
+                        reasoning_effort=payload.reasoning_effort,
+                        memory=database.get_memory(user.id)["content"],
+                        messages=usable_history,
+                        user_message=payload.content,
+                        attachments=agent_attachments,
+                        output_format="text",
+                        web_search_mode=payload.web_search_mode,
+                    ):
+                        answer_parts.append(chunk)
+                        yield json.dumps(
+                            {"type": "delta", "delta": chunk},
+                            ensure_ascii=False,
+                        ) + "\n"
+
+                    answer = "".join(answer_parts).strip()
+                    if not answer:
+                        raise AgentServiceError(
+                            "The Foundry agent returned an empty answer."
+                        )
+                    database.mark_message_complete(user.id, user_message["id"])
+                    user_message["status"] = "complete"
+                    assistant_message = database.add_message(
+                        user.id,
+                        conversation_id,
+                        "assistant",
+                        answer,
+                        model=agent_model,
+                        reasoning_effort=payload.reasoning_effort,
+                        duration_ms=round(
+                            (time.monotonic() - response_started_at) * 1000
+                        ),
+                    )
+                    yield json.dumps(
+                        {
+                            "type": "done",
+                            "user_message": user_message,
+                            "assistant_message": assistant_message,
+                            "conversation": database.get_conversation(
+                                user.id, conversation_id
+                            ),
+                        },
+                        ensure_ascii=False,
+                    ) + "\n"
+                except AgentServiceError as exc:
+                    if user_message is not None:
+                        database.mark_message_error(
+                            user.id, user_message["id"], str(exc)
+                        )
+                    yield json.dumps(
+                        {"type": "error", "detail": str(exc)},
+                        ensure_ascii=False,
+                    ) + "\n"
+                except Exception:
+                    if user_message is not None:
+                        database.mark_message_error(
+                            user.id,
+                            user_message["id"],
+                            "Unexpected hosted-agent failure.",
+                        )
+                    logger.exception("Unexpected streaming agent call failure")
+                    yield json.dumps(
+                        {
+                            "type": "error",
+                            "detail": (
+                                "Hosted Agent 호출 중 예기치 않은 오류가 "
+                                "발생했습니다."
+                            ),
+                        },
+                        ensure_ascii=False,
+                    ) + "\n"
+
+        return StreamingResponse(
+            events(),
+            media_type="application/x-ndjson",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app.get("/api/attachments/{attachment_id}")
     async def download_attachment(request: Request, attachment_id: str):

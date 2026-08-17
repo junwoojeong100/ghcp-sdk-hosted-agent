@@ -12,7 +12,8 @@
 - GitHub Copilot 계정에서 사용 가능한 모델을 런타임에 동적으로 조회
 - GPT-5.6 Sol/Terra/Luna, Claude Opus 5/Sonnet 5/Haiku 4.5, 최신 Gemini/MAI 모델 선택
 - 모델별 지원 범위에 맞춘 추론 강도 선택
-- 최신 정보나 외부 검증이 필요한 질문에서만 GitHub Copilot `web_search` 실행
+- 웹 검색을 `자동`, `항상 사용`, `사용 안 함`으로 직접 선택
+- 답변 토큰 실시간 스트리밍과 응답 소요시간 표시
 - 사용자별 채팅 기록, 제목 자동 생성, 개별/전체 삭제
 - 사용자별 개인 메모리 저장·수정·삭제 및 답변 문맥 반영
 - 이미지, PDF, Office 문서, TXT/Markdown/CSV/JSON 파일 첨부
@@ -136,7 +137,7 @@ python -m uvicorn main:app --host 0.0.0.0 --proxy-headers
 ## 운영 참고
 
 - 모델 가용성은 Copilot 요금제와 조직 정책에 따라 달라집니다. UI는 `CopilotClient.list_models()`의 실제 결과만 정상 가용 모델로 취급합니다.
-- 웹 검색은 최신 정보, 명시적 검색 요청, 외부 검증이 필요한 질문에서만 실행됩니다.
+- `자동`은 모델이 웹 검색 필요성을 판단하고, `항상 사용`은 빠른 검색 모델로 웹 도구를 반드시 실행하며, `사용 안 함`은 웹 도구를 세션에서 제외합니다.
 - 지원 첨부 형식은 TXT, Markdown, CSV, JSON, PDF, PNG/JPG/GIF/WebP, DOCX, XLSX, PPTX입니다. 파일당 8MB, 요청당 5개/총 16MB로 제한합니다.
 - TXT/Markdown/CSV/JSON은 인용 컨텍스트로 전달하고, 이미지·PDF·Office 문서는 Copilot 네이티브 첨부로 전달합니다.
 - 생성된 PPTX와 업로드 파일은 `/home/data/uploads` 아래 사용자·대화별 무작위 저장명으로 보관하며, 소유 사용자만 다운로드할 수 있습니다.

@@ -43,58 +43,65 @@ async def handler(
         envelope, is_private_protocol = parse_agent_input(user_input)
         if envelope.action == "list_models":
             result = await gateway.list_models()
-            return TextResponse(
-                context,
-                request,
-                text=_json_result(ok=True, type="models", **result),
+            text_source = _json_result(
+                ok=True,
+                type="models",
+                **result,
             )
-
-        if not is_private_protocol:
-            envelope.messages = platform_history_to_turns(await context.get_history())
-
-        answer = await gateway.chat(envelope)
-        text = (
-            _json_result(ok=True, type="chat", content=answer)
-            if is_private_protocol
-            else answer
-        )
-        return TextResponse(context, request, text=text)
+        else:
+            if not is_private_protocol:
+                envelope.messages = platform_history_to_turns(
+                    await context.get_history()
+                )
+            request_stream = (
+                bool(request.get("stream"))
+                if isinstance(request, dict)
+                else bool(request.stream)
+            )
+            if request_stream:
+                text_source = gateway.chat_stream(envelope)
+            else:
+                answer = await gateway.chat(envelope)
+                text_source = (
+                    _json_result(ok=True, type="chat", content=answer)
+                    if is_private_protocol
+                    else answer
+                )
     except (ValidationError, ValueError) as exc:
         logger.warning("Invalid agent request: %s", exc)
-        return TextResponse(
-            context,
-            request,
-            text=_json_result(ok=False, error="invalid_request", detail=str(exc)),
+        text_source = _json_result(
+            ok=False,
+            error="invalid_request",
+            detail=str(exc),
         )
     except TimeoutError as exc:
         logger.error("Copilot response timed out: %s", exc)
-        return TextResponse(
-            context,
-            request,
-            text=_json_result(
-                ok=False,
-                error="copilot_timeout",
-                detail="The selected model did not respond before the timeout.",
-            ),
+        text_source = _json_result(
+            ok=False,
+            error="copilot_timeout",
+            detail="The selected model did not respond before the timeout.",
         )
     except RuntimeError as exc:
         logger.error("Copilot runtime error: %s", exc)
-        return TextResponse(
-            context,
-            request,
-            text=_json_result(ok=False, error="copilot_runtime_error", detail=str(exc)),
+        text_source = _json_result(
+            ok=False,
+            error="copilot_runtime_error",
+            detail=str(exc),
         )
     except Exception:
         logger.exception("Unexpected hosted-agent failure")
-        return TextResponse(
-            context,
-            request,
-            text=_json_result(
-                ok=False,
-                error="internal_error",
-                detail="The hosted agent failed unexpectedly.",
-            ),
+        text_source = _json_result(
+            ok=False,
+            error="internal_error",
+            detail="The hosted agent failed unexpectedly.",
         )
+
+    async for event in TextResponse(
+        context,
+        request,
+        text=text_source,
+    ):
+        yield event
 
 
 app.run()
