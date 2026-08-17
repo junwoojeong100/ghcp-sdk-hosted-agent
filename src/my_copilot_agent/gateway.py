@@ -125,7 +125,7 @@ def build_prompt(
 ) -> str:
     history = [
         {"role": turn.role, "content": turn.content}
-        for turn in envelope.messages[-30:]
+        for turn in envelope.messages[-16:]
     ]
     payload = {
         "personal_memory": envelope.memory,

@@ -84,6 +84,9 @@ def test_static_assets_use_same_origin_relative_urls(client: TestClient) -> None
     assert "<title>My Chat</title>" in favicon.text
     assert "#58a6ff" in favicon.text
     assert "#238c70" not in favicon.text
+    app_script = client.get("/static/app.js").text
+    assert "function isNearBottom()" in app_script
+    assert "state.autoFollow = isNearBottom()" in app_script
 
 
 def test_first_login_rejects_bootstrap_password(client: TestClient) -> None:

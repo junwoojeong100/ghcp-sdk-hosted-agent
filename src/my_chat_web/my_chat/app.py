@@ -637,7 +637,7 @@ def create_app(
         prior_messages = database.list_messages(user.id, conversation_id)
         usable_history = [
             {"role": message["role"], "content": message["content"]}
-            for message in prior_messages[-30:]
+            for message in prior_messages[-16:]
             if message["status"] == "complete"
         ]
         user_message = database.add_message(

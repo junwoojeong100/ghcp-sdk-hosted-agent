@@ -14,6 +14,7 @@
     sending: false,
     pendingFiles: [],
     pptMode: false,
+    autoFollow: true,
   };
 
   const elements = {
@@ -244,7 +245,8 @@
     for (const message of messages) {
       appendMessage(message);
     }
-    scrollToBottom();
+    state.autoFollow = true;
+    scrollToBottom(true);
   }
 
   function appendMessage(message, temporary = false) {
@@ -347,7 +349,16 @@
     return row;
   }
 
-  function scrollToBottom() {
+  function isNearBottom() {
+    const remaining =
+      elements.scroller.scrollHeight -
+      elements.scroller.scrollTop -
+      elements.scroller.clientHeight;
+    return remaining < 96;
+  }
+
+  function scrollToBottom(force = false) {
+    if (!force && !state.autoFollow) return;
     window.requestAnimationFrame(() => {
       elements.scroller.scrollTop = elements.scroller.scrollHeight;
     });
@@ -714,6 +725,8 @@
     }));
 
     state.sending = true;
+    state.autoFollow = true;
+    scrollToBottom(true);
     setConnectionStatus(
       "working",
       `${selectedModel()?.name || "Copilot"} 답변 생성 중`,
@@ -940,6 +953,9 @@
     });
     elements.reasoningSelect.addEventListener("change", savePreferences);
     elements.webSearchSelect.addEventListener("change", savePreferences);
+    elements.scroller.addEventListener("scroll", () => {
+      state.autoFollow = isNearBottom();
+    });
     elements.retryModels.addEventListener("click", () => loadModels(true));
     elements.attachFile.addEventListener("click", () =>
       elements.fileInput.click(),

@@ -46,6 +46,10 @@ body {
   margin: 0;
 }
 
+body.chat-page {
+  overflow: hidden;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -493,7 +497,10 @@ textarea:focus {
   background: var(--panel);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -673,8 +680,10 @@ textarea:focus {
 .message-scroller {
   grid-row: 3;
   min-height: 0;
+  overflow-anchor: none;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .messages {
