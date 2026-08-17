@@ -12,13 +12,17 @@ from my_chat.config import Settings
 
 def test_foundry_session_id_is_reused() -> None:
     seen_sessions: list[str | None] = []
+    seen_session_headers: list[str | None] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen_sessions.append(request.headers.get("x-agent-session-id"))
+        payload = json.loads(request.content)
+        seen_sessions.append(payload.get("agent_session_id"))
+        seen_session_headers.append(request.headers.get("x-agent-session-id"))
         return httpx.Response(
             200,
             headers={"x-agent-session-id": "session-123"},
             json={
+                "agent_session_id": "session-123",
                 "output_text": json.dumps(
                     {"ok": True, "type": "models", "models": []}
                 )
@@ -49,3 +53,4 @@ def test_foundry_session_id_is_reused() -> None:
     asyncio.run(scenario())
 
     assert seen_sessions == [None, "session-123"]
+    assert seen_session_headers == [None, None]

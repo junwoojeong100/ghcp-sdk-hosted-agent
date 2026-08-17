@@ -69,14 +69,15 @@ class FoundryAgentClient:
 
     async def _invoke_request(self, envelope: dict[str, Any]) -> dict[str, Any]:
         headers = await self._authorization_headers()
-        if self._agent_session_id:
-            headers["x-agent-session-id"] = self._agent_session_id
-        body = {
+        body: dict[str, Any] = {
             "input": json.dumps(envelope, ensure_ascii=False),
             "stream": False,
         }
+        if self._agent_session_id:
+            body["agent_session_id"] = self._agent_session_id
 
         response: httpx.Response | None = None
+        response_payload: dict[str, Any] | None = None
         for attempt in range(3):
             try:
                 response = await self._http.post(
@@ -96,10 +97,23 @@ class FoundryAgentClient:
                     f"The Foundry agent request failed after it was sent: {exc}"
                 ) from exc
 
-            session_id = response.headers.get("x-agent-session-id")
+            try:
+                candidate_payload = response.json()
+                response_payload = (
+                    candidate_payload
+                    if isinstance(candidate_payload, dict)
+                    else None
+                )
+            except ValueError:
+                response_payload = None
+            session_id = (
+                response_payload.get("agent_session_id")
+                if response_payload is not None
+                else None
+            ) or response.headers.get("x-agent-session-id")
             if session_id:
                 self._agent_session_id = session_id
-                headers["x-agent-session-id"] = session_id
+                body["agent_session_id"] = session_id
             if response.status_code == 424 and attempt < 2:
                 await asyncio.sleep(15 * (attempt + 1))
                 continue
@@ -123,7 +137,8 @@ class FoundryAgentClient:
             )
 
         try:
-            protocol_text = _extract_output_text(response.json())
+            response_payload = response_payload or response.json()
+            protocol_text = _extract_output_text(response_payload)
             result = json.loads(protocol_text)
         except (ValueError, json.JSONDecodeError) as exc:
             raise AgentServiceError(
