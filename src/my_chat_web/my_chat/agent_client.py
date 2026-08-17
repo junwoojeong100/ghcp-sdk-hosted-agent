@@ -189,6 +189,7 @@ class FoundryAgentClient:
         user_message: str,
         attachments: list[dict[str, Any]] | None = None,
         output_format: str = "text",
+        web_search_mode: str = "auto",
     ) -> str:
         result = await self._invoke(
             {
@@ -201,6 +202,7 @@ class FoundryAgentClient:
                 "user_message": user_message,
                 "attachments": attachments or [],
                 "output_format": output_format,
+                "web_search_mode": web_search_mode,
             }
         )
         content = result.get("content")

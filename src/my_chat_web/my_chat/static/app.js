@@ -34,6 +34,7 @@
     pptMode: document.getElementById("ppt-mode"),
     modelSelect: document.getElementById("model-select"),
     reasoningSelect: document.getElementById("reasoning-select"),
+    webSearchSelect: document.getElementById("web-search-select"),
     connectionStatus: document.getElementById("connection-status"),
     connectionStatusText: document.getElementById("connection-status-text"),
     modelWarning: document.getElementById("model-warning"),
@@ -126,6 +127,7 @@
     const hasModel = state.modelsReady && Boolean(elements.modelSelect.value);
     elements.modelSelect.disabled = !state.modelsReady || state.sending;
     elements.reasoningSelect.disabled = !state.modelsReady || state.sending;
+    elements.webSearchSelect.disabled = !state.modelsReady || state.sending;
     elements.input.disabled = !state.modelsReady || state.sending;
     elements.deleteChat.disabled = !state.currentConversation || state.sending;
     elements.newChat.disabled = state.sending;
@@ -443,6 +445,7 @@
       JSON.stringify({
         model: elements.modelSelect.value,
         reasoningEffort: elements.reasoningSelect.value,
+        webSearchMode: elements.webSearchSelect.value,
       }),
     );
   }
@@ -532,6 +535,10 @@
           preferences.reasoningEffort ||
           "default",
       );
+      elements.webSearchSelect.value =
+        ["auto", "required", "disabled"].includes(preferences.webSearchMode)
+          ? preferences.webSearchMode
+          : "auto";
       savePreferences();
 
       if (payload.warning) {
@@ -705,6 +712,7 @@
       formData.append("content", effectiveContent);
       formData.append("model", elements.modelSelect.value);
       formData.append("reasoning_effort", elements.reasoningSelect.value);
+      formData.append("web_search_mode", elements.webSearchSelect.value);
       formData.append("output_format", state.pptMode ? "pptx" : "text");
       for (const file of state.pendingFiles) {
         formData.append("files", file);
@@ -853,6 +861,7 @@
       updateInteractiveState();
     });
     elements.reasoningSelect.addEventListener("change", savePreferences);
+    elements.webSearchSelect.addEventListener("change", savePreferences);
     elements.retryModels.addEventListener("click", () => loadModels(true));
     elements.attachFile.addEventListener("click", () =>
       elements.fileInput.click(),

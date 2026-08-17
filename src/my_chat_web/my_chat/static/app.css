@@ -601,6 +601,10 @@ textarea:focus {
   padding-right: 30px;
 }
 
+#web-search-select {
+  max-width: 130px;
+}
+
 .model-controls select:disabled {
   color: #9a9b96;
   cursor: wait;

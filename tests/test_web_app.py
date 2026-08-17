@@ -145,6 +145,7 @@ def test_password_change_invalidates_other_sessions(app) -> None:
 def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
     with TestClient(app) as jw_client:
         jw_csrf = finish_first_login(jw_client, "jw", "MySecure1234!")
+        assert 'id="web-search-select"' in jw_client.get("/chat").text
 
         models = jw_client.get("/api/models").json()
         assert models["source"] == "copilot"
@@ -178,12 +179,14 @@ def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
                 "content": "오늘 일정 정리해줘",
                 "model": "gpt-5.6-sol",
                 "reasoning_effort": "high",
+                "web_search_mode": "required",
             },
         )
         assert sent.status_code == 200
         assert sent.json()["assistant_message"]["content"].startswith("가짜 답변:")
         assert sent.json()["assistant_message"]["duration_ms"] >= 0
         assert fake_agent.calls[-1]["memory"] == "항상 한국어로 간결하게 답해줘."
+        assert fake_agent.calls[-1]["web_search_mode"] == "required"
 
         history = jw_client.get(
             f"/api/conversations/{conversation_id}"

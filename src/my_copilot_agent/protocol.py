@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 PROTOCOL_NAME = "my-chat/v1"
 ReasoningEffort = Literal["default", "low", "medium", "high", "xhigh", "max"]
 OutputFormat = Literal["text", "pptx"]
+WebSearchMode = Literal["auto", "required", "disabled"]
 
 
 class ChatTurn(BaseModel):
@@ -38,6 +39,7 @@ class AgentEnvelope(BaseModel):
     user_message: str | None = Field(default=None, max_length=20_000)
     attachments: list[ChatAttachment] = Field(default_factory=list, max_length=5)
     output_format: OutputFormat = "text"
+    web_search_mode: WebSearchMode = "auto"
 
 
 def parse_agent_input(text: str) -> tuple[AgentEnvelope, bool]:

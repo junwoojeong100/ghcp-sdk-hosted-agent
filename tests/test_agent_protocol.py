@@ -73,6 +73,24 @@ def test_prompt_quotes_memory_and_history_as_untrusted_context() -> None:
     assert '"current_user_message": "새 질문"' in prompt
 
 
+def test_web_search_mode_changes_prompt_directive() -> None:
+    required = build_prompt(
+        AgentEnvelope(
+            user_message="최신 정보를 찾아줘",
+            web_search_mode="required",
+        )
+    )
+    disabled = build_prompt(
+        AgentEnvelope(
+            user_message="검색하지 말고 답해줘",
+            web_search_mode="disabled",
+        )
+    )
+
+    assert "MUST call web_search" in required
+    assert "Do not call web_search" in disabled
+
+
 def test_web_search_is_optional_for_stable_requests() -> None:
     normalized_instructions = " ".join(SYSTEM_INSTRUCTIONS.split())
     assert "Use web_search only when it materially improves correctness" in (
@@ -112,6 +130,7 @@ def test_attachment_and_pptx_options_are_parsed() -> None:
                 "action": "chat",
                 "user_message": "이 자료로 PPT를 만들어줘",
                 "output_format": "pptx",
+                "web_search_mode": "required",
                 "attachments": [
                     {
                         "filename": "notes.txt",
@@ -126,5 +145,6 @@ def test_attachment_and_pptx_options_are_parsed() -> None:
 
     assert private is True
     assert envelope.output_format == "pptx"
+    assert envelope.web_search_mode == "required"
     assert envelope.attachments[0].filename == "notes.txt"
     assert '"output_format": "pptx"' in build_prompt(envelope)

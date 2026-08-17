@@ -46,6 +46,7 @@ from .security import (
 
 ReasoningEffort = Literal["default", "low", "medium", "high", "xhigh", "max"]
 OutputFormat = Literal["text", "pptx"]
+WebSearchMode = Literal["auto", "required", "disabled"]
 logger = logging.getLogger(__name__)
 
 ALLOWED_ATTACHMENT_TYPES = {
@@ -87,6 +88,7 @@ class MessageCreate(BaseModel):
     model: str = Field(min_length=1, max_length=100)
     reasoning_effort: ReasoningEffort = "default"
     output_format: OutputFormat = "text"
+    web_search_mode: WebSearchMode = "auto"
 
 
 class MemoryUpdate(BaseModel):
@@ -169,6 +171,7 @@ async def _parse_message_request(
                     "model": form.get("model"),
                     "reasoning_effort": form.get("reasoning_effort", "default"),
                     "output_format": form.get("output_format", "text"),
+                    "web_search_mode": form.get("web_search_mode", "auto"),
                 }
             )
         else:
@@ -685,6 +688,7 @@ def create_app(
                     user_message=payload.content,
                     attachments=agent_attachments,
                     output_format=payload.output_format,
+                    web_search_mode=payload.web_search_mode,
                 )
             except AgentServiceError as exc:
                 database.mark_message_error(user.id, user_message["id"], str(exc))
