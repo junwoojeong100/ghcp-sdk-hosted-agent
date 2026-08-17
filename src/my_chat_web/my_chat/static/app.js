@@ -3,8 +3,8 @@
 
   const csrfToken =
     document.querySelector('meta[name="csrf-token"]')?.content || "";
-  const preferenceKey = `family-chat-preferences:${document.body.dataset.username || "user"}`;
-  const conversationKey = `family-chat-current:${document.body.dataset.username || "user"}`;
+  const preferenceKey = `my-chat-preferences:${document.body.dataset.username || "user"}`;
+  const conversationKey = `my-chat-current:${document.body.dataset.username || "user"}`;
   const state = {
     conversations: [],
     currentConversation: null,

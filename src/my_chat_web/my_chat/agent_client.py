@@ -141,7 +141,7 @@ class FoundryAgentClient:
 
             result = await self._invoke(
                 {
-                    "protocol": "family-chat/v1",
+                    "protocol": "my-chat/v1",
                     "action": "list_models",
                 }
             )
@@ -162,7 +162,7 @@ class FoundryAgentClient:
     ) -> str:
         result = await self._invoke(
             {
-                "protocol": "family-chat/v1",
+                "protocol": "my-chat/v1",
                 "action": "chat",
                 "model": model,
                 "reasoning_effort": reasoning_effort,

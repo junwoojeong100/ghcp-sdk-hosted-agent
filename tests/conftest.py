@@ -7,8 +7,8 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from family_chat import create_app
-from family_chat.config import Settings
+from my_chat import create_app
+from my_chat.config import Settings
 
 
 class FakeAgentClient:
@@ -74,7 +74,7 @@ def fake_agent() -> FakeAgentClient:
 def app(tmp_path: Path, fake_agent: FakeAgentClient):
     settings = Settings(
         app_env="test",
-        database_path=tmp_path / "family-chat.db",
+        database_path=tmp_path / "my-chat.db",
         session_secret="test-session-secret-that-is-long-enough",
         bootstrap_password="bootstrap-1234",
         agent_endpoint="http://localhost:8088/responses",

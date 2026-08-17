@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-FAMILY_USERS = ("jw", "yw", "yc", "bm")
+CHAT_USERS = ("jw", "yw", "yc", "bm")
 FALLBACK_MODELS = (
     {"id": "gpt-5.6-sol", "name": "GPT-5.6 Sol"},
     {"id": "gpt-5.6-terra", "name": "GPT-5.6 Terra"},
@@ -38,29 +38,29 @@ class Settings:
         production = app_env == "production"
 
         default_database = (
-            Path("/home/data/family-chat.db")
+            Path("/home/data/my-chat.db")
             if os.getenv("WEBSITE_INSTANCE_ID")
-            else Path.cwd() / "data" / "family-chat.db"
+            else Path.cwd() / "data" / "my-chat.db"
         )
         database_path = Path(
-            os.getenv("FAMILY_CHAT_DATABASE_PATH", str(default_database))
+            os.getenv("MY_CHAT_DATABASE_PATH", str(default_database))
         ).expanduser()
         upload_dir = Path(
             os.getenv(
-                "FAMILY_CHAT_UPLOAD_DIR",
+                "MY_CHAT_UPLOAD_DIR",
                 str(database_path.parent / "uploads"),
             )
         ).expanduser()
 
         session_secret = os.getenv("APP_SESSION_SECRET", "")
-        bootstrap_password = os.getenv("FAMILY_CHAT_BOOTSTRAP_PASSWORD", "")
+        bootstrap_password = os.getenv("MY_CHAT_BOOTSTRAP_PASSWORD", "")
         if production and len(session_secret) < 32:
             raise RuntimeError(
                 "APP_SESSION_SECRET must be at least 32 characters in production."
             )
         if production and len(bootstrap_password) < 10:
             raise RuntimeError(
-                "FAMILY_CHAT_BOOTSTRAP_PASSWORD must be at least 10 characters "
+                "MY_CHAT_BOOTSTRAP_PASSWORD must be at least 10 characters "
                 "in production."
             )
 

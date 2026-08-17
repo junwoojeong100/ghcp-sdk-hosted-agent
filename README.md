@@ -34,8 +34,8 @@ Browser
 
 | 경로 | 역할 |
 |---|---|
-| `src/family_copilot_agent/` | Foundry Hosted Agent와 Copilot SDK 어댑터 |
-| `src/family_chat_web/` | FastAPI 웹앱, 인증, SQLite, UI |
+| `src/my_copilot_agent/` | Foundry Hosted Agent와 Copilot SDK 어댑터 |
+| `src/my_chat_web/` | FastAPI 웹앱, 인증, SQLite, UI |
 | `tests/` | 인증·격리·CRUD·프로토콜 테스트 |
 | `azure.yaml` | 모델 배포 없는 Foundry Hosted Agent 정의 |
 
@@ -49,38 +49,38 @@ Browser
 azd env set COPILOT_GITHUB_TOKEN "$(gh auth token --user <github-user>)"
 ```
 
-`azd provision`은 이 값을 Foundry의 `copilot-secrets` CustomKeys 연결에 쓰기 전용 비밀로 저장합니다. Agent 버전에는 실제 값 대신 `${{connections.copilot-secrets.credentials.github_token}}` 참조만 남습니다. 토큰을 소스, `.env.example`, 커밋 또는 로그에 넣지 마세요. `.azure/`와 `.env`는 Git에서 제외됩니다.
+`azd provision`은 이 값을 Foundry의 `my-chat-runtime-secrets` CustomKeys 연결에 쓰기 전용 비밀로 저장합니다. Agent 버전에는 실제 값 대신 `${{connections.my-chat-runtime-secrets.credentials.github_token}}` 참조만 남습니다. 토큰을 소스, `.env.example`, 커밋 또는 로그에 넣지 마세요. `.azure/`와 `.env`는 Git에서 제외됩니다.
 
 ## 로컬 실행
 
 ### 1. Hosted Agent
 
 ```bash
-cd src/family_copilot_agent
+cd src/my_copilot_agent
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 cd ../..
 
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-  azd ai agent run family-copilot-chat --no-client
+  azd ai agent run my-chat --no-client
 ```
 
 다른 터미널에서:
 
 ```bash
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-  azd ai agent invoke family-copilot-chat --local "안녕하세요"
+  azd ai agent invoke my-chat --local "안녕하세요"
 ```
 
 ### 2. 웹앱
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -r src/family_chat_web/requirements-dev.txt
+.venv/bin/python -m pip install -r src/my_chat_web/requirements-dev.txt
 
-cd src/family_chat_web
+cd src/my_chat_web
 export APP_SESSION_SECRET="<32자 이상의 임의 문자열>"
-export FAMILY_CHAT_BOOTSTRAP_PASSWORD="<가족에게 전달할 임시 비밀번호>"
+export MY_CHAT_BOOTSTRAP_PASSWORD="<가족에게 전달할 임시 비밀번호>"
 export FOUNDRY_AGENT_ENDPOINT="http://localhost:8088/responses"
 ../../.venv/bin/uvicorn main:app --reload
 ```
@@ -103,7 +103,7 @@ AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision --no-prompt
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd deploy --no-prompt
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent show --output json
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
-  azd ai agent invoke family-copilot-chat "안녕하세요"
+  azd ai agent invoke my-chat "안녕하세요"
 ```
 
 `azd deploy`는 `codeConfiguration`을 사용한 직접 코드 배포입니다. Docker/ACR이나 Foundry 모델 배포가 필요하지 않습니다.
@@ -114,9 +114,9 @@ AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
 |---|---|
 | `APP_ENV` | `production` |
 | `APP_SESSION_SECRET` | 32자 이상의 랜덤 비밀 |
-| `FAMILY_CHAT_BOOTSTRAP_PASSWORD` | 최초 로그인용 임시 비밀번호 |
-| `FAMILY_CHAT_DATABASE_PATH` | `/home/data/family-chat.db` |
-| `FAMILY_CHAT_UPLOAD_DIR` | `/home/data/uploads` |
+| `MY_CHAT_BOOTSTRAP_PASSWORD` | 최초 로그인용 임시 비밀번호 |
+| `MY_CHAT_DATABASE_PATH` | `/home/data/my-chat.db` |
+| `MY_CHAT_UPLOAD_DIR` | `/home/data/uploads` |
 | `FOUNDRY_AGENT_ENDPOINT` | 배포된 Hosted Agent Responses 엔드포인트 |
 | `FOUNDRY_TOKEN_SCOPE` | `https://ai.azure.com/.default` |
 | `ALLOWED_HOSTS` | 웹앱 호스트 이름 |

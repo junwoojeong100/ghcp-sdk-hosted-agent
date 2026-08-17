@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-PROTOCOL_NAME = "family-chat/v1"
+PROTOCOL_NAME = "my-chat/v1"
 ReasoningEffort = Literal["default", "low", "medium", "high", "xhigh", "max"]
 OutputFormat = Literal["text", "pptx"]
 
@@ -29,7 +29,7 @@ class ChatAttachment(BaseModel):
 class AgentEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    protocol: Literal["family-chat/v1"] = PROTOCOL_NAME
+    protocol: Literal["my-chat/v1"] = PROTOCOL_NAME
     action: Literal["chat", "list_models"] = "chat"
     model: str | None = Field(default=None, max_length=100)
     reasoning_effort: ReasoningEffort = "default"

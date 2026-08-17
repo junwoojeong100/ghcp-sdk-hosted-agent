@@ -11,7 +11,7 @@ from typing import Any, Literal
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 
-from .config import FAMILY_USERS
+from .config import CHAT_USERS
 
 Role = Literal["user", "assistant"]
 
@@ -161,7 +161,7 @@ class Database:
             }
             now = utc_iso()
             password_hash = self.password_hasher.hash(bootstrap_password)
-            for username in FAMILY_USERS:
+            for username in CHAT_USERS:
                 if username not in existing:
                     connection.execute(
                         """

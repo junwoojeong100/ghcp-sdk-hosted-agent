@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pptx import Presentation
 
-from family_chat.presentation import DeckSpec, build_presentation
+from my_chat.presentation import DeckSpec, build_presentation
 
 
 def test_presentation_uses_structured_varied_layouts(tmp_path) -> None:

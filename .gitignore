@@ -12,3 +12,5 @@ data/
 *.db-wal
 azd-ai-agents-*.log
 .DS_Store
+.playwright-mcp/
+production-login.png

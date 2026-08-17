@@ -28,7 +28,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .agent_client import AgentServiceError, FoundryAgentClient
-from .config import FALLBACK_MODELS, FAMILY_USERS, Settings
+from .config import CHAT_USERS, FALLBACK_MODELS, Settings
 from .database import Database, User
 from .presentation import (
     PresentationFormatError,
@@ -113,7 +113,7 @@ def _template_context(
         "user": user,
         "error": error,
         "csrf_token": csrf_token(request),
-        "family_users": FAMILY_USERS,
+        "chat_users": CHAT_USERS,
     }
 
 
@@ -316,7 +316,7 @@ def create_app(
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.session_secret,
-        session_cookie="family_chat_session",
+        session_cookie="my_chat_session",
         max_age=60 * 60 * 24 * 7,
         same_site="lax",
         https_only=settings.cookie_secure,
@@ -384,7 +384,7 @@ def create_app(
         csrf: str = Form(...),
     ):
         validate_csrf(request, csrf)
-        if username not in FAMILY_USERS:
+        if username not in CHAT_USERS:
             result = None
         else:
             result = database.authenticate(username, password)

@@ -9,7 +9,7 @@ from protocol import AgentEnvelope, parse_agent_input
 
 def test_private_protocol_is_parsed() -> None:
     payload = {
-        "protocol": "family-chat/v1",
+        "protocol": "my-chat/v1",
         "action": "chat",
         "model": "gpt-5.6-sol",
         "reasoning_effort": "high",
@@ -32,7 +32,7 @@ def test_plain_prompt_remains_playground_compatible() -> None:
     assert envelope.user_message == "안녕하세요"
 
 
-def test_only_requested_and_latest_family_models_are_selected() -> None:
+def test_only_requested_and_latest_models_are_selected() -> None:
     models = [
         SimpleNamespace(id="gpt-5.6-sol"),
         SimpleNamespace(id="gpt-5.5"),
@@ -61,7 +61,7 @@ def test_prompt_quotes_memory_and_history_as_untrusted_context() -> None:
         )
     )
 
-    assert "<untrusted_family_chat_context>" in prompt
+    assert "<untrusted_my_chat_context>" in prompt
     assert '"personal_memory": "내 선호"' in prompt
     assert '"current_user_message": "새 질문"' in prompt
 
@@ -70,7 +70,7 @@ def test_attachment_and_pptx_options_are_parsed() -> None:
     envelope, private = parse_agent_input(
         json.dumps(
             {
-                "protocol": "family-chat/v1",
+                "protocol": "my-chat/v1",
                 "action": "chat",
                 "user_message": "이 자료로 PPT를 만들어줘",
                 "output_format": "pptx",

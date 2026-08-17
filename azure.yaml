@@ -3,10 +3,10 @@
 requiredVersions:
   extensions:
     azure.ai.agents: ">=1.0.0-beta.10"
-name: family-copilot-chat
+name: my-chat
 services:
-  family-copilot-chat:
-    project: src/family_copilot_agent
+  my-chat:
+    project: src/my_copilot_agent
     host: azure.ai.agent
     language: python
     uses:
@@ -25,7 +25,7 @@ services:
       - name: APP_ENV
         value: production
       - name: COPILOT_GITHUB_TOKEN
-        value: ${{connections.copilot-secrets.credentials.github_token}}
+        value: ${{connections.my-chat-runtime-secrets.credentials.github_token}}
       - name: COPILOT_CLI_EXTRACT_DIR
         value: /tmp/copilot-cli
       - name: DEFAULT_COPILOT_MODEL
@@ -37,13 +37,13 @@ services:
         - My Chat
         - Responses Protocol
         - Python
-    name: family-copilot-chat
+    name: my-chat
     protocols:
       - protocol: responses
         version: 2.0.0
   ai-project:
     host: azure.ai.project
-  copilot-secrets:
+  my-chat-runtime-secrets:
     host: azure.ai.connection
     uses:
       - ai-project

@@ -73,7 +73,7 @@ def test_static_assets_use_same_origin_relative_urls(client: TestClient) -> None
     assert 'src="/static/theme.js"' in response.text
     assert 'id="theme-toggle"' in response.text
     assert "<h1>My Chat</h1>" in response.text
-    assert "Family Chat" not in response.text
+    assert "My Chat" in response.text
     assert "http://testserver/static" not in response.text
 
 
@@ -122,8 +122,8 @@ def test_password_change_invalidates_other_sessions(app) -> None:
         first.post(
             "/change-password",
             data={
-                "new_password": "FamilySecure1234!",
-                "confirm_password": "FamilySecure1234!",
+                "new_password": "MySecure1234!",
+                "confirm_password": "MySecure1234!",
                 "csrf": csrf_from_html(first_page),
             },
             follow_redirects=False,
@@ -136,7 +136,7 @@ def test_password_change_invalidates_other_sessions(app) -> None:
 
 def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
     with TestClient(app) as jw_client:
-        jw_csrf = finish_first_login(jw_client, "jw", "FamilySecure1234!")
+        jw_csrf = finish_first_login(jw_client, "jw", "MySecure1234!")
 
         models = jw_client.get("/api/models").json()
         assert models["source"] == "copilot"
@@ -185,7 +185,7 @@ def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
         ]
 
     with TestClient(app) as yw_client:
-        finish_first_login(yw_client, "yw", "FamilySecure1234!")
+        finish_first_login(yw_client, "yw", "MySecure1234!")
         assert (
             yw_client.get(f"/api/conversations/{conversation_id}").status_code
             == 404
@@ -195,7 +195,7 @@ def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
 
 def test_conversation_and_memory_deletion(app) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "yc", "FamilySecure1234!")
+        csrf = finish_first_login(client, "yc", "MySecure1234!")
         created = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -228,7 +228,7 @@ def test_conversation_and_memory_deletion(app) -> None:
 
 def test_file_attachment_is_persisted_and_user_isolated(app, fake_agent) -> None:
     with TestClient(app) as jw_client:
-        csrf = finish_first_login(jw_client, "jw", "FamilySecure1234!")
+        csrf = finish_first_login(jw_client, "jw", "MySecure1234!")
         conversation_id = jw_client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -246,7 +246,7 @@ def test_file_attachment_is_persisted_and_user_isolated(app, fake_agent) -> None
             },
             files={
                 "files": (
-                    "family-notes.txt",
+                    "my-notes.txt",
                     b"My Chat attachment test",
                     "text/plain",
                 )
@@ -255,22 +255,22 @@ def test_file_attachment_is_persisted_and_user_isolated(app, fake_agent) -> None
 
         assert sent.status_code == 200
         attachment = sent.json()["user_message"]["attachments"][0]
-        assert attachment["filename"] == "family-notes.txt"
+        assert attachment["filename"] == "my-notes.txt"
         assert fake_agent.calls[-1]["attachments"][0]["filename"] == (
-            "family-notes.txt"
+            "my-notes.txt"
         )
         download = jw_client.get(attachment["download_url"])
         assert download.status_code == 200
         assert download.content == b"My Chat attachment test"
 
     with TestClient(app) as yw_client:
-        finish_first_login(yw_client, "yw", "FamilySecure1234!")
+        finish_first_login(yw_client, "yw", "MySecure1234!")
         assert yw_client.get(attachment["download_url"]).status_code == 404
 
 
 def test_pptx_generation_returns_downloadable_presentation(app) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "yc", "FamilySecure1234!")
+        csrf = finish_first_login(client, "yc", "MySecure1234!")
         conversation_id = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -301,7 +301,7 @@ def test_pptx_generation_returns_downloadable_presentation(app) -> None:
 
 def test_unsupported_attachment_type_is_rejected(app) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "bm", "FamilySecure1234!")
+        csrf = finish_first_login(client, "bm", "MySecure1234!")
         conversation_id = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -323,7 +323,7 @@ def test_unsupported_attachment_type_is_rejected(app) -> None:
 
 
 def test_csrf_is_required_for_mutations(client: TestClient) -> None:
-    finish_first_login(client, "bm", "FamilySecure1234!")
+    finish_first_login(client, "bm", "MySecure1234!")
 
     response = client.post(
         "/api/conversations",

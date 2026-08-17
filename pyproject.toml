@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [
-  "src/family_copilot_agent",
-  "src/family_chat_web",
+  "src/my_copilot_agent",
+  "src/my_chat_web",
 ]
 addopts = "-q"
