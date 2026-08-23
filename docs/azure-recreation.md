@@ -1,5 +1,7 @@
 # Recreate My Chat on Azure
 
+> **Language / 언어:** English | [한국어](azure-recreation_KO.md)
+
 The repository contains everything required to recreate the Azure resources and deploy the application code. Environment bindings and secrets are intentionally excluded.
 
 ## Resources created

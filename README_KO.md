@@ -113,7 +113,7 @@ AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
 
 ## Azure 전체 재생성
 
-Foundry, App Service, 관리 ID, RBAC과 앱 설정을 `my-chat` 이름으로 다시 만드는 절차는 [Azure 재생성 가이드](docs/azure-recreation.md)를 따릅니다.
+Foundry, App Service, 관리 ID, RBAC과 앱 설정을 `my-chat` 이름으로 다시 만드는 절차는 [Azure 재생성 가이드](docs/azure-recreation_KO.md)를 따릅니다.
 
 ```bash
 ./scripts/recreate-azure.sh
