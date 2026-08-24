@@ -88,7 +88,11 @@ export FOUNDRY_AGENT_ENDPOINT="http://localhost:8088/responses"
 ../../.venv/bin/uvicorn main:app --reload
 ```
 
-Open `http://localhost:8000` to log in. On first login all users use the bootstrap password and are immediately prompted to set their own password.
+Open `http://localhost:8000` to log in. The fixed accounts `user1`, `user2`, and
+`user3` share the configured bootstrap password. Each account is immediately
+prompted to set its own password on first login. Keep the actual bootstrap
+password outside the repository and distribute it separately to workshop
+participants.
 
 ## Testing
 
@@ -135,7 +139,7 @@ The web UI is deployed to a separate Azure App Service with the following app se
 |---|---|
 | `APP_ENV` | `production` |
 | `APP_SESSION_SECRET` | Random secret, 32+ characters |
-| `MY_CHAT_BOOTSTRAP_PASSWORD` | Temporary password for first login |
+| `MY_CHAT_BOOTSTRAP_PASSWORD` | Shared temporary password for `user1`, `user2`, and `user3`; each user must change it on first login |
 | `MY_CHAT_DATABASE_PATH` | `/home/data/my-chat.db` |
 | `MY_CHAT_UPLOAD_DIR` | `/home/data/uploads` |
 | `FOUNDRY_AGENT_ENDPOINT` | Deployed Hosted Agent Responses endpoint |

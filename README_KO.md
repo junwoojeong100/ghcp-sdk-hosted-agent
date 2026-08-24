@@ -88,7 +88,10 @@ export FOUNDRY_AGENT_ENDPOINT="http://localhost:8088/responses"
 ../../.venv/bin/uvicorn main:app --reload
 ```
 
-`http://localhost:8000`에서 로그인합니다. 최초 로그인 시 모든 사용자가 임시 비밀번호를 사용하고, 즉시 본인 비밀번호로 변경합니다.
+`http://localhost:8000`에서 로그인합니다. 고정 계정 `user1`, `user2`,
+`user3`은 설정된 공통 초기 비밀번호를 사용하며, 각 계정은 최초 로그인
+직후 본인 비밀번호로 변경해야 합니다. 실제 초기 비밀번호는 저장소에
+커밋하지 말고 실습 참가자에게 별도로 전달합니다.
 
 ## 테스트
 
@@ -135,7 +138,7 @@ Foundry, App Service, 관리 ID, RBAC과 앱 설정을 `my-chat` 이름으로 �
 |---|---|
 | `APP_ENV` | `production` |
 | `APP_SESSION_SECRET` | 32자 이상의 랜덤 비밀 |
-| `MY_CHAT_BOOTSTRAP_PASSWORD` | 최초 로그인용 임시 비밀번호 |
+| `MY_CHAT_BOOTSTRAP_PASSWORD` | `user1`, `user2`, `user3` 공통 초기 비밀번호이며 최초 로그인 시 변경 필수 |
 | `MY_CHAT_DATABASE_PATH` | `/home/data/my-chat.db` |
 | `MY_CHAT_UPLOAD_DIR` | `/home/data/uploads` |
 | `FOUNDRY_AGENT_ENDPOINT` | 배포된 Hosted Agent Responses 엔드포인트 |

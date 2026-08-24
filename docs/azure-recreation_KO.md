@@ -43,6 +43,11 @@ export APP_SESSION_SECRET="<at-least-32-random-characters>"
 export MY_CHAT_BOOTSTRAP_PASSWORD="<temporary-password-at-least-10-characters>"
 ```
 
+`MY_CHAT_BOOTSTRAP_PASSWORD`는 `user1`, `user2`, `user3`이 함께 사용하는
+최초 로그인용 비밀번호입니다. 모든 계정은 로그인 직후 새 비밀번호로
+변경해야 합니다. 실습용 값은 배포 셸에서 설정해 참가자에게 별도로
+전달하고, 공개 저장소에는 실제 사용 중인 값을 커밋하지 않습니다.
+
 선택적으로 다음 값을 재정의할 수 있습니다.
 
 ```bash

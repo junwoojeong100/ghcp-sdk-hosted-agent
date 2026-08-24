@@ -40,6 +40,11 @@ export APP_SESSION_SECRET="<at-least-32-random-characters>"
 export MY_CHAT_BOOTSTRAP_PASSWORD="<temporary-password-at-least-10-characters>"
 ```
 
+`MY_CHAT_BOOTSTRAP_PASSWORD` is the shared first-login password for `user1`,
+`user2`, and `user3`. Every account must replace it immediately after signing
+in. Set the workshop value in the deployment shell and distribute it
+separately; never commit the active password to this public repository.
+
 Optional overrides:
 
 ```bash
