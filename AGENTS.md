@@ -8,7 +8,7 @@ This project was built with the `microsoft-foundry` skill. Before working on or 
 
 - `azure.yaml` — Foundry project and direct-code Hosted Agent definition
 - `src/my_copilot_agent/` — GitHub Copilot SDK-backed Hosted Agent
-- `src/my_chat_web/` — FastAPI private web application
+- `src/my_chat_web/` — FastAPI web application
 - `tests/` — authentication, isolation, persistence, and protocol tests
 
 ## Development workflow

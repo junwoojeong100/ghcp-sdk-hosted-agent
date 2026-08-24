@@ -28,7 +28,7 @@ def test_production_storage_uses_rollback_journal(tmp_path, monkeypatch) -> None
 def test_add_message_rejects_missing_conversation(tmp_path) -> None:
     database = Database(tmp_path / "my-chat.db")
     database.initialize("Bootstrap1234")
-    user = database.get_user("jw")
+    user = database.get_user("user1")
     assert user is not None
 
     with pytest.raises(ValueError, match="does not belong"):
@@ -45,7 +45,7 @@ def test_add_message_rejects_missing_conversation(tmp_path) -> None:
 def test_attachment_batch_rolls_back_on_invalid_message(tmp_path) -> None:
     database = Database(tmp_path / "my-chat.db")
     database.initialize("Bootstrap1234")
-    user = database.get_user("jw")
+    user = database.get_user("user1")
     assert user is not None
     conversation = database.create_conversation(user.id, "gpt-5.6-sol", "low")
     message = database.add_message(
@@ -91,7 +91,7 @@ def test_attachment_batch_rolls_back_on_invalid_message(tmp_path) -> None:
 def test_completed_exchange_is_atomic(tmp_path) -> None:
     database = Database(tmp_path / "my-chat.db")
     database.initialize("Bootstrap1234")
-    user = database.get_user("jw")
+    user = database.get_user("user1")
     assert user is not None
     conversation = database.create_conversation(user.id, "gpt-5.6-sol", "low")
     user_message = database.add_message(

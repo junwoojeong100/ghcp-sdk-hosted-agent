@@ -43,7 +43,7 @@ class AgentEnvelope(BaseModel):
 
 
 def parse_agent_input(text: str) -> tuple[AgentEnvelope, bool]:
-    """Parse the private web protocol, falling back to a normal Playground prompt."""
+    """Parse the structured web protocol or fall back to a Playground prompt."""
     try:
         raw = json.loads(text)
     except json.JSONDecodeError:

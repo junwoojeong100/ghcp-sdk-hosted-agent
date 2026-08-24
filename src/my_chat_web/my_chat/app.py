@@ -1017,7 +1017,7 @@ def create_app(
             file_path,
             media_type=attachment["mime_type"],
             filename=attachment["filename"],
-            headers={"Cache-Control": "private, no-store"},
+            headers={"Cache-Control": "no-store"},
         )
 
     @app.get("/api/memory")

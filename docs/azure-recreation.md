@@ -8,15 +8,15 @@ The repository contains everything required to recreate the Azure resources and 
 
 Foundry resources are created by `azure.yaml` through the Microsoft Foundry azd provider:
 
-- Resource group: `rg-my-chat-foundry-<env>-eus2`
+- Resource group: `rg-my-chat-foundry-<env>-swc`
 - Foundry project: `my-chat-<env>`
 - Hosted Agent: `my-chat`
 - GitHub secret connection: `my-chat-runtime-secrets`
 
 The web resources are created by `infra/web/main.bicep`:
 
-- Resource group: `rg-my-chat-web-<env>-krc`
-- Linux App Service plan: `asp-my-chat-web-<env>-krc`
+- Resource group: `rg-my-chat-web-<env>-swc`
+- Linux App Service plan: `asp-my-chat-web-<env>-swc`
 - Python web app: `my-chat-web-<env>-<stable-hash>`
 - System-assigned managed identity
 - `Foundry User` role assignment on the project
@@ -44,11 +44,13 @@ Optional overrides:
 
 ```bash
 export MY_CHAT_ENVIRONMENT="dev"
-export FOUNDRY_LOCATION="eastus2"
-export WEB_LOCATION="koreacentral"
+export FOUNDRY_LOCATION="swedencentral"
+export WEB_LOCATION="swedencentral"
 export APP_SERVICE_SKU_NAME="F1"
 export APP_SERVICE_SKU_TIER="Free"
 ```
+
+Both Foundry and App Service default to Sweden Central. These settings apply only when creating resources; they do not relocate an existing deployment.
 
 ## Recreate and deploy
 

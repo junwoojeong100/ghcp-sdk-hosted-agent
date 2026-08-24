@@ -40,7 +40,7 @@ async def handler(
     user_input = await context.get_input_text() or ""
 
     try:
-        envelope, is_private_protocol = parse_agent_input(user_input)
+        envelope, is_structured_protocol = parse_agent_input(user_input)
         if envelope.action == "list_models":
             result = await gateway.list_models()
             text_source = _json_result(
@@ -49,7 +49,7 @@ async def handler(
                 **result,
             )
         else:
-            if not is_private_protocol:
+            if not is_structured_protocol:
                 envelope.messages = platform_history_to_turns(
                     await context.get_history()
                 )
@@ -64,7 +64,7 @@ async def handler(
                 answer = await gateway.chat(envelope)
                 text_source = (
                     _json_result(ok=True, type="chat", content=answer)
-                    if is_private_protocol
+                    if is_structured_protocol
                     else answer
                 )
     except (ValidationError, ValueError) as exc:

@@ -53,7 +53,7 @@ def test_first_login_forces_password_change(client: TestClient) -> None:
     response = client.post(
         "/login",
         data={
-            "username": "jw",
+            "username": "user1",
             "password": "bootstrap-1234",
             "csrf": csrf_from_html(login_page),
         },
@@ -77,6 +77,11 @@ def test_static_assets_use_same_origin_relative_urls(client: TestClient) -> None
     assert 'id="theme-toggle"' in response.text
     assert "<h1>My Chat</h1>" in response.text
     assert "My Chat" in response.text
+    assert re.findall(r'<option value="([^"]+)">', response.text) == [
+        "user1",
+        "user2",
+        "user3",
+    ]
     assert ">F<" not in response.text
     assert "http://testserver/static" not in response.text
 
@@ -95,7 +100,7 @@ def test_first_login_rejects_bootstrap_password(client: TestClient) -> None:
     client.post(
         "/login",
         data={
-            "username": "jw",
+            "username": "user1",
             "password": "bootstrap-1234",
             "csrf": csrf_from_html(login_page),
         },
@@ -123,7 +128,7 @@ def test_password_change_invalidates_other_sessions(app) -> None:
             response = client.post(
                 "/login",
                 data={
-                    "username": "jw",
+                    "username": "user1",
                     "password": "bootstrap-1234",
                     "csrf": csrf_from_html(login_page),
                 },
@@ -148,38 +153,38 @@ def test_password_change_invalidates_other_sessions(app) -> None:
 
 
 def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
-    with TestClient(app) as jw_client:
-        jw_csrf = finish_first_login(jw_client, "jw", "MySecure1234!")
-        assert 'id="web-search-select"' in jw_client.get("/chat").text
+    with TestClient(app) as user1_client:
+        user1_csrf = finish_first_login(user1_client, "user1", "MySecure1234!")
+        assert 'id="web-search-select"' in user1_client.get("/chat").text
 
-        models = jw_client.get("/api/models").json()
+        models = user1_client.get("/api/models").json()
         assert models["source"] == "copilot"
         assert models["models"][0]["id"] == "gpt-5.6-sol"
-        refreshed = jw_client.get("/api/models?refresh=true")
+        refreshed = user1_client.get("/api/models?refresh=true")
         assert refreshed.status_code == 200
         assert fake_agent.calls[-1] == {
             "type": "list_models",
             "force_refresh": True,
         }
 
-        created = jw_client.post(
+        created = user1_client.post(
             "/api/conversations",
-            headers={"X-CSRF-Token": jw_csrf},
+            headers={"X-CSRF-Token": user1_csrf},
             json={"model": "gpt-5.6-sol", "reasoning_effort": "high"},
         )
         assert created.status_code == 201
         conversation_id = created.json()["conversation"]["id"]
 
-        memory = jw_client.put(
+        memory = user1_client.put(
             "/api/memory",
-            headers={"X-CSRF-Token": jw_csrf},
+            headers={"X-CSRF-Token": user1_csrf},
             json={"content": "항상 한국어로 간결하게 답해줘."},
         )
         assert memory.status_code == 200
 
-        sent = jw_client.post(
+        sent = user1_client.post(
             f"/api/conversations/{conversation_id}/messages",
-            headers={"X-CSRF-Token": jw_csrf},
+            headers={"X-CSRF-Token": user1_csrf},
             json={
                 "content": "오늘 일정 정리해줘",
                 "model": "gpt-5.6-sol",
@@ -194,7 +199,7 @@ def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
         assert fake_agent.calls[-1]["web_search_mode"] == "required"
         assert fake_agent.calls[-1]["model"] == "gpt-5.6-luna"
 
-        history = jw_client.get(
+        history = user1_client.get(
             f"/api/conversations/{conversation_id}"
         ).json()
         assert [message["role"] for message in history["messages"]] == [
@@ -202,18 +207,18 @@ def test_chat_memory_and_user_isolation(app, fake_agent) -> None:
             "assistant",
         ]
 
-    with TestClient(app) as yw_client:
-        finish_first_login(yw_client, "yw", "MySecure1234!")
+    with TestClient(app) as user2_client:
+        finish_first_login(user2_client, "user2", "MySecure1234!")
         assert (
-            yw_client.get(f"/api/conversations/{conversation_id}").status_code
+            user2_client.get(f"/api/conversations/{conversation_id}").status_code
             == 404
         )
-        assert yw_client.get("/api/memory").json()["memory"]["content"] == ""
+        assert user2_client.get("/api/memory").json()["memory"]["content"] == ""
 
 
 def test_conversation_and_memory_deletion(app) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "yc", "MySecure1234!")
+        csrf = finish_first_login(client, "user3", "MySecure1234!")
         created = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -246,7 +251,7 @@ def test_conversation_and_memory_deletion(app) -> None:
 
 def test_streaming_chat_returns_deltas(app) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "yw", "MySecure1234!")
+        csrf = finish_first_login(client, "user2", "MySecure1234!")
         conversation_id = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -280,15 +285,15 @@ def test_streaming_chat_returns_deltas(app) -> None:
 
 
 def test_file_attachment_is_persisted_and_user_isolated(app, fake_agent) -> None:
-    with TestClient(app) as jw_client:
-        csrf = finish_first_login(jw_client, "jw", "MySecure1234!")
-        conversation_id = jw_client.post(
+    with TestClient(app) as user1_client:
+        csrf = finish_first_login(user1_client, "user1", "MySecure1234!")
+        conversation_id = user1_client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
             json={"model": "gpt-5.6-sol", "reasoning_effort": "default"},
         ).json()["conversation"]["id"]
 
-        sent = jw_client.post(
+        sent = user1_client.post(
             f"/api/conversations/{conversation_id}/messages",
             headers={"X-CSRF-Token": csrf},
             data={
@@ -312,18 +317,18 @@ def test_file_attachment_is_persisted_and_user_isolated(app, fake_agent) -> None
         assert fake_agent.calls[-1]["attachments"][0]["filename"] == (
             "my-notes.txt"
         )
-        download = jw_client.get(attachment["download_url"])
+        download = user1_client.get(attachment["download_url"])
         assert download.status_code == 200
         assert download.content == b"My Chat attachment test"
 
-    with TestClient(app) as yw_client:
-        finish_first_login(yw_client, "yw", "MySecure1234!")
-        assert yw_client.get(attachment["download_url"]).status_code == 404
+    with TestClient(app) as user2_client:
+        finish_first_login(user2_client, "user2", "MySecure1234!")
+        assert user2_client.get(attachment["download_url"]).status_code == 404
 
 
 def test_pptx_generation_returns_downloadable_presentation(app) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "yc", "MySecure1234!")
+        csrf = finish_first_login(client, "user3", "MySecure1234!")
         conversation_id = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -334,7 +339,7 @@ def test_pptx_generation_returns_downloadable_presentation(app) -> None:
             f"/api/conversations/{conversation_id}/messages",
             headers={"X-CSRF-Token": csrf},
             data={
-                "content": "가족 여행 계획 PPT를 만들어줘",
+                "content": "여행 계획 PPT를 만들어줘",
                 "model": "gpt-5.6-sol",
                 "reasoning_effort": "high",
                 "output_format": "pptx",
@@ -354,7 +359,7 @@ def test_pptx_generation_returns_downloadable_presentation(app) -> None:
 
 def test_unsupported_attachment_type_is_rejected(app) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "bm", "MySecure1234!")
+        csrf = finish_first_login(client, "user3", "MySecure1234!")
         conversation_id = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -376,7 +381,7 @@ def test_unsupported_attachment_type_is_rejected(app) -> None:
 
 
 def test_csrf_is_required_for_mutations(client: TestClient) -> None:
-    finish_first_login(client, "bm", "MySecure1234!")
+    finish_first_login(client, "user3", "MySecure1234!")
 
     response = client.post(
         "/api/conversations",
@@ -391,13 +396,13 @@ def test_long_answers_are_truncated_only_for_reused_context(
     fake_agent,
 ) -> None:
     with TestClient(app) as client:
-        csrf = finish_first_login(client, "jw", "MySecure1234!")
+        csrf = finish_first_login(client, "user1", "MySecure1234!")
         conversation_id = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
             json={"model": "gpt-5.6-sol", "reasoning_effort": "low"},
         ).json()["conversation"]["id"]
-        user = app.state.database.get_user("jw")
+        user = app.state.database.get_user("user1")
         assert user is not None
         long_answer = f"{'A' * 12_000}{'Z' * 12_000}"
         app.state.database.add_message(
@@ -445,7 +450,7 @@ def test_upload_database_failure_removes_staged_files(
     )
 
     with TestClient(app, raise_server_exceptions=False) as client:
-        csrf = finish_first_login(client, "bm", "MySecure1234!")
+        csrf = finish_first_login(client, "user3", "MySecure1234!")
         conversation_id = client.post(
             "/api/conversations",
             headers={"X-CSRF-Token": csrf},
@@ -460,7 +465,7 @@ def test_upload_database_failure_removes_staged_files(
                 "model": "gpt-5.6-sol",
                 "reasoning_effort": "default",
             },
-            files={"files": ("notes.txt", b"private", "text/plain")},
+            files={"files": ("notes.txt", b"sample", "text/plain")},
         )
 
         assert response.status_code == 500

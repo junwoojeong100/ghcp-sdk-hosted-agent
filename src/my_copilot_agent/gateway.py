@@ -35,7 +35,7 @@ EXACT_MODEL_IDS = (
 )
 LATEST_MODEL_PREFIXES = ("gemini-", "mai-")
 SYSTEM_INSTRUCTIONS = """
-You are My Chat, a private general-purpose assistant for one user.
+You are My Chat, a general-purpose assistant for one user.
 Answer in the same language as the user's current message unless asked otherwise.
 Be accurate, practical, and concise. State uncertainty instead of inventing facts.
 Follow safety and privacy rules. Refuse requests that facilitate violence, self-harm,

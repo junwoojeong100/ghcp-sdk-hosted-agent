@@ -1,1 +1,1 @@
-A private personal assistant that answers general questions using user-selected GitHub Copilot models, preserves per-user conversation context, and responds in the user's language.
+A personal assistant that answers general questions using user-selected GitHub Copilot models, preserves per-user conversation context, and responds in the user's language.

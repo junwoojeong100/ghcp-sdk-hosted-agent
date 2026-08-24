@@ -14,13 +14,13 @@ def test_web_package_excludes_runtime_and_secret_files(tmp_path: Path) -> None:
     (source / ".env").write_text("SECRET=value\n", encoding="utf-8")
     (source / ".env.local").write_text("SECRET=value\n", encoding="utf-8")
     (source / "local.db").write_bytes(b"database")
-    (source / "server.log").write_text("private log\n", encoding="utf-8")
+    (source / "server.log").write_text("runtime log\n", encoding="utf-8")
     (source / "__pycache__").mkdir()
     (source / "__pycache__" / "main.pyc").write_bytes(b"cache")
     (source / "data").mkdir()
-    (source / "data" / "my-chat.db").write_bytes(b"private conversations")
+    (source / "data" / "my-chat.db").write_bytes(b"stored conversations")
     (source / "uploads").mkdir()
-    (source / "uploads" / "family.pdf").write_bytes(b"private upload")
+    (source / "uploads" / "sample.pdf").write_bytes(b"stored upload")
     archive_path = tmp_path / "web.zip"
 
     subprocess.run(

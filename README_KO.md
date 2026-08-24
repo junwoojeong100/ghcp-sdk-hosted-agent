@@ -2,13 +2,13 @@
 
 > **언어 / Language:** [English](README.md) | 한국어
 
-가족 4명(`jw`, `yw`, `yc`, `bm`)이 사용하는 ChatGPT 스타일의 비공개 웹앱입니다. 실제 AI 추론과 모델 목록은 **GitHub Copilot SDK/CLI**에서 가져오며, Microsoft Foundry는 커스텀 Python 코드를 실행하는 **Hosted Agent 런타임**으로만 사용합니다.
+고정 샘플 계정 3개(`user1`, `user2`, `user3`)를 사용하는 ChatGPT 스타일의 FastAPI 웹앱입니다. 실제 AI 추론과 모델 목록은 **GitHub Copilot SDK/CLI**에서 가져오며, Microsoft Foundry는 커스텀 Python 코드를 실행하는 **Hosted Agent 런타임**으로만 사용합니다.
 
 > Foundry의 GPT 모델 배포는 만들지 않습니다. `azure.yaml`의 Foundry 프로젝트에는 모델 배포가 없으며, 모든 답변은 `github-copilot-sdk`를 통해 GitHub Copilot 모델이 생성합니다.
 
 ## 주요 기능
 
-- 고정 사용자 4명과 사용자별 데이터 완전 분리
+- 고정 사용자 3명과 사용자별 데이터 완전 분리
 - 공용 임시 비밀번호로 최초 로그인 후 개인 비밀번호 강제 변경
 - Argon2 비밀번호 해시, 로그인 잠금, 서명 세션 쿠키, CSRF 방어
 - GitHub Copilot 계정에서 사용 가능한 모델을 런타임에 동적으로 조회
@@ -83,7 +83,7 @@ python3 -m venv .venv
 
 cd src/my_chat_web
 export APP_SESSION_SECRET="<32자 이상의 임의 문자열>"
-export MY_CHAT_BOOTSTRAP_PASSWORD="<가족에게 전달할 임시 비밀번호>"
+export MY_CHAT_BOOTSTRAP_PASSWORD="<최초 로그인용 임시 비밀번호>"
 export FOUNDRY_AGENT_ENDPOINT="http://localhost:8088/responses"
 ../../.venv/bin/uvicorn main:app --reload
 ```
@@ -99,7 +99,14 @@ export FOUNDRY_AGENT_ENDPOINT="http://localhost:8088/responses"
 
 ## Foundry 배포
 
-Hosted Agent 배포는 프로젝트 루트에서 실행합니다.
+최초 배포 시 Sweden Central 환경을 한 번 생성합니다.
+
+```bash
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
+  azd env new my-chat-dev --location swedencentral --no-prompt
+```
+
+이후 프로젝트 루트에서 배포 명령을 실행합니다.
 
 ```bash
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision --no-prompt
@@ -110,6 +117,7 @@ AZURE_DEV_USER_AGENT=microsoft_foundry_skill \
 ```
 
 `azd deploy`는 `codeConfiguration`을 사용한 직접 코드 배포입니다. Docker/ACR이나 Foundry 모델 배포가 필요하지 않습니다.
+새 환경과 재생성 워크플로의 기본 리전은 Sweden Central입니다. 이 기본값을 바꿔도 기존 Azure 리소스의 리전은 이동하지 않습니다.
 
 ## Azure 전체 재생성
 

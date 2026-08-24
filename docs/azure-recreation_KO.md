@@ -9,15 +9,15 @@
 
 Foundry 리소스는 Microsoft Foundry azd provider를 통해 `azure.yaml`에서 생성합니다.
 
-- 리소스 그룹: `rg-my-chat-foundry-<env>-eus2`
+- 리소스 그룹: `rg-my-chat-foundry-<env>-swc`
 - Foundry 프로젝트: `my-chat-<env>`
 - Hosted Agent: `my-chat`
 - GitHub 비밀 연결: `my-chat-runtime-secrets`
 
 웹 리소스는 `infra/web/main.bicep`에서 생성합니다.
 
-- 리소스 그룹: `rg-my-chat-web-<env>-krc`
-- Linux App Service 플랜: `asp-my-chat-web-<env>-krc`
+- 리소스 그룹: `rg-my-chat-web-<env>-swc`
+- Linux App Service 플랜: `asp-my-chat-web-<env>-swc`
 - Python 웹앱: `my-chat-web-<env>-<stable-hash>`
 - 시스템 할당 관리 ID
 - 프로젝트 범위의 `Foundry User` 역할 할당
@@ -47,11 +47,13 @@ export MY_CHAT_BOOTSTRAP_PASSWORD="<temporary-password-at-least-10-characters>"
 
 ```bash
 export MY_CHAT_ENVIRONMENT="dev"
-export FOUNDRY_LOCATION="eastus2"
-export WEB_LOCATION="koreacentral"
+export FOUNDRY_LOCATION="swedencentral"
+export WEB_LOCATION="swedencentral"
 export APP_SERVICE_SKU_NAME="F1"
 export APP_SERVICE_SKU_TIER="Free"
 ```
+
+Foundry와 App Service의 기본 리전은 모두 Sweden Central입니다. 이 값은 리소스를 새로 만들 때만 적용되며 기존 배포의 리전을 이동하지 않습니다.
 
 ## 재생성 및 배포
 

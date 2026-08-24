@@ -6,7 +6,7 @@ targetScope = 'subscription'
 param environmentName string = 'dev'
 
 @description('Azure region for the Python web application.')
-param webLocation string = 'koreacentral'
+param webLocation string = 'swedencentral'
 
 @description('Resource group that contains the Foundry account and project.')
 param foundryResourceGroupName string
@@ -42,8 +42,8 @@ param tags object = {
   managedBy: 'bicep'
 }
 
-var webResourceGroupName = 'rg-my-chat-web-${environmentName}-krc'
-var appServicePlanName = 'asp-my-chat-web-${environmentName}-krc'
+var webResourceGroupName = 'rg-my-chat-web-${environmentName}-swc'
+var appServicePlanName = 'asp-my-chat-web-${environmentName}-swc'
 var webAppName = take(
   'my-chat-web-${environmentName}-${uniqueString(subscription().subscriptionId, environmentName)}',
   60

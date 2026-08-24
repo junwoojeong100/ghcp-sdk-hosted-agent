@@ -14,7 +14,7 @@ from gateway import (
 from protocol import AgentEnvelope, parse_agent_input
 
 
-def test_private_protocol_is_parsed() -> None:
+def test_structured_protocol_is_parsed() -> None:
     payload = {
         "protocol": "my-chat/v1",
         "action": "chat",
@@ -25,17 +25,17 @@ def test_private_protocol_is_parsed() -> None:
         "user_message": "현재 질문",
     }
 
-    envelope, private = parse_agent_input(json.dumps(payload))
+    envelope, structured = parse_agent_input(json.dumps(payload))
 
-    assert private is True
+    assert structured is True
     assert envelope.model == "gpt-5.6-sol"
     assert envelope.messages[0].content == "이전 질문"
 
 
 def test_plain_prompt_remains_playground_compatible() -> None:
-    envelope, private = parse_agent_input("안녕하세요")
+    envelope, structured = parse_agent_input("안녕하세요")
 
-    assert private is False
+    assert structured is False
     assert envelope.user_message == "안녕하세요"
 
 
@@ -144,7 +144,7 @@ def test_chat_skips_redundant_model_discovery() -> None:
 
 
 def test_attachment_and_pptx_options_are_parsed() -> None:
-    envelope, private = parse_agent_input(
+    envelope, structured = parse_agent_input(
         json.dumps(
             {
                 "protocol": "my-chat/v1",
@@ -164,7 +164,7 @@ def test_attachment_and_pptx_options_are_parsed() -> None:
         )
     )
 
-    assert private is True
+    assert structured is True
     assert envelope.output_format == "pptx"
     assert envelope.web_search_mode == "required"
     assert envelope.attachments[0].filename == "notes.txt"

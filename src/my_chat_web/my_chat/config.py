@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-CHAT_USERS = ("jw", "yw", "yc", "bm")
+CHAT_USERS = ("user1", "user2", "user3")
 FALLBACK_MODELS = (
     {"id": "gpt-5.6-sol", "name": "GPT-5.6 Sol"},
     {"id": "gpt-5.6-terra", "name": "GPT-5.6 Terra"},
